@@ -5,7 +5,7 @@ pub fn build(b: *std.Build) void {
     const mode = b.standardOptimizeOption(.{});
 
     const exe = b.addExecutable(.{
-        .name = "sdl2_zig",
+        .name = "zig_gui",
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = mode,
@@ -16,5 +16,5 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(exe);
 
     const run_cmd = b.addRunArtifact(exe);
-    b.step("run", "Run the SDL2 app").dependOn(&run_cmd.step);
+    b.step("run", "Run the gui test app").dependOn(&run_cmd.step);
 }

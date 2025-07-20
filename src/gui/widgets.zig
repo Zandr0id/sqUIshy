@@ -261,7 +261,7 @@ pub const Widget = struct {
     size: Vec2(i32), //length,width
     color: RGBAColor,
     parent: *Widget = undefined,
-    context: *const UIContext,
+    context: *const UIContext = undefined,
     hoverState: WidgetHoverStates = WidgetHoverStates.UNHOVERED,
     isMouseDown: bool = false,
 
