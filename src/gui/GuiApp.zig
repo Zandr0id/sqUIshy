@@ -35,17 +35,17 @@ pub fn GuiApp(comptime WrapperType: type) type {
 
         running: bool = false,
 
-        pub fn Init(self: *GuiApp, wrapper: *WrapperType, options: GuiAppOptions) !void
+        pub fn Init(self: *GuiApp(WrapperType), wrapper: *WrapperType, options: GuiAppOptions) !void
         {
             self.options = options;
-            self.environment = .{.windowSize = self.options.startingWindowSize, .wrapper = wrapper};
+            self.environment = .{.windowSize = self.options.startingWindowSize, .wrapperApp = wrapper};
 
             //create the memory slaps to create widgets on
             self.arena = std.heap.ArenaAllocator.init(self.options.allocator);
-            self.appWidgets = std.ArrayList(*widgets.Widget).init(self.options.allocator);
+            self.appWidgets = std.ArrayList(*widgets.Widget(WrapperType)).init(self.options.allocator);
         }
 
-        pub fn AddWidget(self: *GuiApp, widget: widgets.Widget) !*widgets.Widget
+        pub fn AddWidget(self: *GuiApp(WrapperType), widget: widgets.Widget(WrapperType)) !*widgets.Widget(WrapperType)
         {
             if (self.running)
             {
@@ -53,7 +53,7 @@ pub fn GuiApp(comptime WrapperType: type) type {
             }
             
             const allocator = self.arena.allocator();
-            const newWidget = try allocator.create(widgets.Widget);
+            const newWidget = try allocator.create(widgets.Widget(WrapperType));
             newWidget.* = widget;
             newWidget.*.owningGui = self;
 
@@ -62,7 +62,7 @@ pub fn GuiApp(comptime WrapperType: type) type {
             return newWidget;
         }
 
-        pub fn Run(self: *GuiApp) !void {
+        pub fn Run(self: *GuiApp(WrapperType)) !void {
             try sdl.Init();
             defer sdl.Quit();
 

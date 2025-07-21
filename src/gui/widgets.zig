@@ -71,148 +71,152 @@ pub const Transform = struct {
     scale: Vec2(f32) = .{ .x = 1.0, .y = 1.0 }, //x,y
 };
 
-pub const Button = struct {
-
-    pub fn update(self: *Button, widget: *Widget) void
-    {
-        _ = self;
-        _ = widget;
-
-        //Buttons don't really need to update anything unique to them since they don't hold any state
-
-    }
-
-    pub fn draw(self: *Button, widget: *Widget) !void {
-        _ = self;
-
-        const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
-            .x = widget.transform.position.x, //
-            .y =widget.transform.position.y,
-            .h = widget.size.y,
-            .w = widget.size.x,
-        };
-
-        var color: RGBAColor = widget.color;
-
-        if (widget.*.hoverState == WidgetHoverStates.HOVERED)
-        {
-            if (widget.*.isMouseDown)
-            {
-                color.r = 200;
-                color.g = 100;
-                color.b = 100;
-            }
-            else
-            {
-                //lighten the color just a bit
-                color.r +|= 30;
-                color.g +|= 100;
-                color.b +|= 30;
-            }
-        }
-        
-        _ = sdl.c.SDL_SetRenderDrawColor(widget.*.owningGui.*.renderer, color.r, color.g, color.b, color.a);
-        _ = sdl.c.SDL_RenderFillRect(widget.*.owningGui.*.renderer, &rect);
-        const font = sdl.c.TTF_OpenFont("/usr/share/fonts/truetype/ubuntu/Ubuntu-C.ttf", 64);
-        if (font == null)
-        {
-            return error.OpenFontFailed;
-        } 
+pub fn Button(comptime WrapperType: type) type{
     
-        const newColor: sdl.c.SDL_Color = .{.r = 0,.g = 0, .b =0,.a = 255};
-        const surface = sdl.c.TTF_RenderText_Blended(font, widget.*.label, newColor);
-        if (surface == null)
+    return struct {
+        pub fn update(self: *Button(WrapperType), widget: *Widget(WrapperType)) void
         {
-            return error.CreateSurfaceFailed;
+            _ = self;
+            _ = widget;
+
+            //Buttons don't really need to update anything unique to them since they don't hold any state
+
         }
 
-        const texture = sdl.c.SDL_CreateTextureFromSurface(widget.*.owningGui.*.renderer, surface);
-        if (texture == null)
-        {
-            return error.CreateTextureFailed;
-        } 
+        pub fn draw(self: *Button(WrapperType), widget: *Widget(WrapperType)) !void {
+            _ = self;
 
-        sdl.c.SDL_FreeSurface(surface);
-        _ = sdl.c.SDL_RenderCopy(widget.*.owningGui.*.renderer, texture, null, &rect);
-    }
-};
+            const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
+                .x = widget.transform.position.x, //
+                .y =widget.transform.position.y,
+                .h = widget.size.y,
+                .w = widget.size.x,
+            };
 
-pub fn CheckBox(comptime WrapperType: type) type,
-pub const CheckBox = struct {
-    checked: bool = false,
+            var color: RGBAColor = widget.color;
 
-    onCheckStateChanged: ?*const fn(widget: *Widget(WrapperType), newState: bool) void = null,
-
-    pub fn update(self: *CheckBox, widget: *Widget) void{
-        
-        //if it's hovered and just clicked, flip state
-        if (widget.*.hoverState == WidgetHoverStates.JUST_NOW_HOVERED or 
-            widget.*.hoverState == WidgetHoverStates.HOVERED)
-        {
-            
-            if (widget.*.owningGui.*.environment.mouseLeft == MouseButtonStates.JUST_NOW_PRESSED)
+            if (widget.*.hoverState == WidgetHoverStates.HOVERED)
             {
-                if (self.checked)
+                if (widget.*.isMouseDown)
                 {
-                    self.checked = false;
+                    color.r = 200;
+                    color.g = 100;
+                    color.b = 100;
                 }
                 else
                 {
-                    self.checked = true;
+                    //lighten the color just a bit
+                    color.r +|= 30;
+                    color.g +|= 100;
+                    color.b +|= 30;
                 }
+            }
+            
+            _ = sdl.c.SDL_SetRenderDrawColor(widget.*.owningGui.*.renderer, color.r, color.g, color.b, color.a);
+            _ = sdl.c.SDL_RenderFillRect(widget.*.owningGui.*.renderer, &rect);
+            const font = sdl.c.TTF_OpenFont("/usr/share/fonts/truetype/ubuntu/Ubuntu-C.ttf", 64);
+            if (font == null)
+            {
+                return error.OpenFontFailed;
+            } 
+        
+            const newColor: sdl.c.SDL_Color = .{.r = 0,.g = 0, .b =0,.a = 255};
+            const surface = sdl.c.TTF_RenderText_Blended(font, widget.*.label, newColor);
+            if (surface == null)
+            {
+                return error.CreateSurfaceFailed;
+            }
+
+            const texture = sdl.c.SDL_CreateTextureFromSurface(widget.*.owningGui.*.renderer, surface);
+            if (texture == null)
+            {
+                return error.CreateTextureFailed;
+            } 
+
+            sdl.c.SDL_FreeSurface(surface);
+            _ = sdl.c.SDL_RenderCopy(widget.*.owningGui.*.renderer, texture, null, &rect);
+        }
+    };
+}
+
+pub fn CheckBox(comptime WrapperType: type) type
+{
+    return struct {
+        checked: bool = false,
+
+        onCheckStateChanged: ?*const fn(outer:*WrapperType, widget: *Widget(WrapperType), newState: bool) void = null,
+
+        pub fn update(self: *CheckBox(WrapperType), widget: *Widget(WrapperType)) void{
+            
+            //if it's hovered and just clicked, flip state
+            if (widget.*.hoverState == WidgetHoverStates.JUST_NOW_HOVERED or 
+                widget.*.hoverState == WidgetHoverStates.HOVERED)
+            {
                 
-                if (self.onCheckStateChanged) |callback|
+                if (widget.*.owningGui.*.environment.mouseLeft == MouseButtonStates.JUST_NOW_PRESSED)
                 {
-                    callback(widget, self.checked);
+                    if (self.checked)
+                    {
+                        self.checked = false;
+                    }
+                    else
+                    {
+                        self.checked = true;
+                    }
+                    
+                    if (self.onCheckStateChanged) |callback|
+                    {
+                        callback(widget.owningGui.*.environment.wrapperApp,widget, self.checked);
+                    }
                 }
             }
         }
-    }
 
-    pub fn draw(self: *CheckBox, widget: *Widget) !void {
+        pub fn draw(self: *CheckBox(WrapperType), widget: *Widget(WrapperType)) !void {
 
-        const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
-            .x = widget.transform.position.x, //
-            .y =widget.transform.position.y,
-            .h = widget.size.y,
-            .w = widget.size.x,
-        };
-
-        var color: RGBAColor = widget.color;
-
-        if (widget.*.hoverState == WidgetHoverStates.HOVERED)
-        {
-            //lighten the color just a bit
-            color.r +|= 30;
-            color.g +|= 30;
-            color.b +|= 30;
-            
-        }
-
-        _ = sdl.c.SDL_SetRenderDrawColor(widget.owningGui.*.renderer, color.r, color.g, color.b, color.a);
-        _ = sdl.c.SDL_RenderFillRect(widget.owningGui.*.renderer, &rect);
-
-        //fill in the center green if it's checked
-        if (self.checked)
-        {
-            _ = sdl.c.SDL_SetRenderDrawColor(widget.owningGui.*.renderer, 0, 200, 0, 255);
-        }
-        else 
-        {
-            _ = sdl.c.SDL_SetRenderDrawColor(widget.owningGui.*.renderer, 50, 50, 50, 255);
-        }
-            const border = 10;
-
-            const checked_rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
-            .x = widget.transform.position.x + border, //
-            .y =widget.transform.position.y + border,
-            .h = widget.size.y - (2*border),
-            .w = widget.size.x - (2*border),
+            const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
+                .x = widget.transform.position.x, //
+                .y =widget.transform.position.y,
+                .h = widget.size.y,
+                .w = widget.size.x,
             };
 
-            _ = sdl.c.SDL_RenderFillRect(widget.owningGui.*.renderer, &checked_rect);
-    }
-};
+            var color: RGBAColor = widget.color;
+
+            if (widget.*.hoverState == WidgetHoverStates.HOVERED)
+            {
+                //lighten the color just a bit
+                color.r +|= 30;
+                color.g +|= 30;
+                color.b +|= 30;
+                
+            }
+
+            _ = sdl.c.SDL_SetRenderDrawColor(widget.owningGui.*.renderer, color.r, color.g, color.b, color.a);
+            _ = sdl.c.SDL_RenderFillRect(widget.owningGui.*.renderer, &rect);
+
+            //fill in the center green if it's checked
+            if (self.checked)
+            {
+                _ = sdl.c.SDL_SetRenderDrawColor(widget.owningGui.*.renderer, 0, 200, 0, 255);
+            }
+            else 
+            {
+                _ = sdl.c.SDL_SetRenderDrawColor(widget.owningGui.*.renderer, 50, 50, 50, 255);
+            }
+                const border = 10;
+
+                const checked_rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
+                .x = widget.transform.position.x + border, //
+                .y =widget.transform.position.y + border,
+                .h = widget.size.y - (2*border),
+                .w = widget.size.x - (2*border),
+                };
+
+                _ = sdl.c.SDL_RenderFillRect(widget.owningGui.*.renderer, &checked_rect);
+        }
+    };
+}
 
 pub const Slider = struct {
     minValue: u32 = 0,
@@ -226,53 +230,56 @@ pub const Slider = struct {
     }
 };
 
-pub const Label = struct {
-     value: []const u8 = "",
+pub fn Label(comptime WrapperType: type) type
+{
+    return struct {
+        value: []const u8 = "",
 
-     pub fn draw(self: *Label, widget: *Widget) !void
-     {
-        _ = self;
-
-        const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
-            .x = widget.transform.position.x, //
-            .y =widget.transform.position.y,
-            .h = widget.size.y,
-            .w = widget.size.x,
-        };
-
-        const font = sdl.c.TTF_OpenFont("/usr/share/fonts/truetype/ubuntu/Ubuntu-C.ttf", 64);
-        if (font == null)
+        pub fn draw(self: *Label(WrapperType), widget: *Widget(WrapperType)) !void
         {
-            return error.OpenFontFailed;
-        } 
-    
-        const newColor: sdl.c.SDL_Color = .{.r = widget.*.color.r,.g = widget.*.color.g, .b =widget.*.color.b,.a = 255};
-        const surface = sdl.c.TTF_RenderText_Blended(font, widget.*.label, newColor);
-        if (surface == null)
-        {
-            return error.CreateSurfaceFailed;
+            _ = self;
+
+            const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
+                .x = widget.transform.position.x, //
+                .y =widget.transform.position.y,
+                .h = widget.size.y,
+                .w = widget.size.x,
+            };
+
+            const font = sdl.c.TTF_OpenFont("/usr/share/fonts/truetype/ubuntu/Ubuntu-C.ttf", 64);
+            if (font == null)
+            {
+                return error.OpenFontFailed;
+            } 
+        
+            const newColor: sdl.c.SDL_Color = .{.r = widget.*.color.r,.g = widget.*.color.g, .b =widget.*.color.b,.a = 255};
+            const surface = sdl.c.TTF_RenderText_Blended(font, widget.*.label, newColor);
+            if (surface == null)
+            {
+                return error.CreateSurfaceFailed;
+            }
+
+            const texture = sdl.c.SDL_CreateTextureFromSurface(widget.*.owningGui.*.renderer, surface);
+            if (texture == null)
+            {
+                return error.CreateTextureFailed;
+            } 
+
+            sdl.c.SDL_FreeSurface(surface);
+            _ = sdl.c.SDL_RenderCopy(widget.*.owningGui.*.renderer, texture, null, &rect);
         }
-
-        const texture = sdl.c.SDL_CreateTextureFromSurface(widget.*.owningGui.*.renderer, surface);
-        if (texture == null)
-        {
-            return error.CreateTextureFailed;
-        } 
-
-        sdl.c.SDL_FreeSurface(surface);
-        _ = sdl.c.SDL_RenderCopy(widget.*.owningGui.*.renderer, texture, null, &rect);
-     }
-};
+    };
+}
 
 pub fn WidgetType(comptime WrapperType: type) type
 {
     return union(enum) {
         const SelfType = @This();
 
-        Button: Button,
-        CheckBox: CheckBox,
+        Button: Button(WrapperType),
+        CheckBox: CheckBox(WrapperType),
         Slider: Slider,
-        Label: Label,
+        Label: Label(WrapperType),
 
         pub fn update(self: *SelfType, widget: *Widget(WrapperType)) void
         {
@@ -310,10 +317,10 @@ pub fn Widget(comptime WrapperType: type) type
         hoverState: WidgetHoverStates = WidgetHoverStates.UNHOVERED,
         isMouseDown: bool = false,
 
-        onHovered: ?*const fn(widget: *Widget(WrapperType)) void = null,
-        onUnhovered: ?*const fn(widget: *Widget(WrapperType)) void = null,
-        onMouseDown: ?*const fn(widget: *Widget(WrapperType)) void = null,
-        onMouseUp: ?*const fn(widget: *Widget(WrapperType)) void = null,
+        onHovered: ?*const fn(outer:*WrapperType, widget: *Widget(WrapperType)) void = null,
+        onUnhovered: ?*const fn(outer:*WrapperType, widget: *Widget(WrapperType)) void = null,
+        onMouseDown: ?*const fn(outer:*WrapperType, widget: *Widget(WrapperType)) void = null,
+        onMouseUp: ?*const fn(outer:*WrapperType, widget: *Widget(WrapperType)) void = null,
 
         widgetType: WidgetType(WrapperType),
 
@@ -346,7 +353,7 @@ pub fn Widget(comptime WrapperType: type) type
                 {
                     if (self.onHovered) |callback|
                     {
-                        callback(self);
+                        callback(self.owningGui.*.environment.wrapperApp,self);
                     }
                     continue: hoverStateCheck WidgetHoverStates.HOVERED;
                 },
@@ -366,7 +373,7 @@ pub fn Widget(comptime WrapperType: type) type
                 {
                     if (self.onUnhovered) |callback|
                     {
-                        callback(self);
+                        callback(self.owningGui.*.environment.wrapperApp,self);
                     }
                     continue: hoverStateCheck WidgetHoverStates.UNHOVERED;
                 }
@@ -381,7 +388,7 @@ pub fn Widget(comptime WrapperType: type) type
                     {
                         if (self.onMouseDown) |callback|
                         {
-                            callback(self);
+                            callback(self.owningGui.*.environment.wrapperApp,self);
                         }
                         self.isMouseDown = true;
                         continue :mouseStateCheck MouseButtonStates.PRESSED;
@@ -394,7 +401,7 @@ pub fn Widget(comptime WrapperType: type) type
                     {
                         if (self.onMouseUp) |callback|
                         {
-                            callback(self);
+                            callback(self.owningGui.*.environment.wrapperApp,self);
                         }
                         self.isMouseDown = false;
                         continue :mouseStateCheck MouseButtonStates.RELEASED;
@@ -410,7 +417,7 @@ pub fn Widget(comptime WrapperType: type) type
             self.widgetType.update(self);
         }
 
-        pub fn draw(self: *Widget) !void {
+        pub fn draw(self: *Widget(WrapperType)) !void {
             try self.widgetType.draw(self);
         }
     };
