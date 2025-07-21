@@ -4,10 +4,7 @@
 const std = @import("std");
 const sdl = @import("../sdl/sdl.zig");
 
-//TODO: get this out of here and wrap all the drawing function in the sdl.zig file
-const c = @cImport({
-    @cInclude("SDL2/SDL.h");
-});
+//const ttf = @cImport({@cInclude("SDL2/SDL_ttf.h");});
 
 //Any global UI data can go here
 pub const UIContext = struct {
@@ -17,6 +14,13 @@ pub const UIContext = struct {
     mouseLeft: MouseButtonStates = MouseButtonStates.RELEASED,
     mouseRight: MouseButtonStates = MouseButtonStates.RELEASED,
 };
+
+const WidgetErrors = error{
+    CreateSurfaceFailed,
+    CreateTextureFailed,
+    OpenFontFailed,
+};
+
 
 pub const WidgetHoverStates = enum(u8){
     UNHOVERED,
@@ -78,107 +82,19 @@ pub const Transform = struct {
 
 pub const Button = struct {
 
-    pub fn update(self: *Button, widgetType: *WidgetType, widget: *Widget) void
+    pub fn update(self: *Button, widget: *Widget) void
     {
-        _ = widgetType;
         _ = self;
-        const mousePos = widget.*.context.*.mouseLocation;
-        const widgetLocation = widget.*.transform.position;
+        _ = widget;
 
-        //are we currently hovered?
-        const latestHoverState = (mousePos.x >= widgetLocation.x) and
-                            (mousePos.x <= widgetLocation.x + widget.*.size.x) and
-                            (mousePos.y >= widgetLocation.y) and
-                            (mousePos.y <= widgetLocation.y + widget.*.size.y);
+        //Buttons don't really need to update anything unique to them since they don't hold any state
 
-
-
-        hoverStateCheck: switch(widget.*.hoverState)
-        {
-            WidgetHoverStates.UNHOVERED=>
-            {
-                
-                if (true == latestHoverState) //we were unhovered, and we just stared
-                {
-                    widget.*.hoverState = WidgetHoverStates.HOVERED;
-                    continue: hoverStateCheck WidgetHoverStates.JUST_NOW_HOVERED;
-                }
-                else 
-                {
-                    //TODO do something while remaining unhovered?
-                }
-            },
-            WidgetHoverStates.JUST_NOW_HOVERED=>
-            {
-                if (widget.*.onHovered) |callback|
-                {
-                    callback(widget);
-                }
-                continue: hoverStateCheck WidgetHoverStates.HOVERED;
-            },
-            WidgetHoverStates.HOVERED=>
-            {
-                if (false == latestHoverState) //we were hovered, now we're not
-                {
-                    widget.*.hoverState = WidgetHoverStates.UNHOVERED;
-                    continue: hoverStateCheck WidgetHoverStates.JUST_NOW_UNHOVERED;
-                }
-                else 
-                {
-                    //TODO do something while remaining hovered
-                }
-            },
-            WidgetHoverStates.JUST_NOW_UNHOVERED=>
-            {
-                if (widget.*.onUnhovered) |callback|
-                {
-                    callback(widget);
-                }
-                continue: hoverStateCheck WidgetHoverStates.UNHOVERED;
-            }
-        }
-
-        //don't even try to run onClick if you're not hovered. Makes no sense.
-        if (true == latestHoverState)  
-        {
-            mouseStateCheck: switch(widget.context.mouseLeft)
-            {
-                MouseButtonStates.JUST_NOW_PRESSED=>
-                {
-                    if (widget.*.onMouseDown) |callback|
-                    {
-                        callback(widget);
-                    }
-                    widget.*.isMouseDown = true;
-                    continue :mouseStateCheck MouseButtonStates.PRESSED;
-                },
-                MouseButtonStates.PRESSED=>
-                {
-                    //TODO mouse being held
-                },
-                MouseButtonStates.JUST_NOW_RELEASED=>
-                {
-                    if (widget.*.onMouseUp) |callback|
-                    {
-                        callback(widget);
-                    }
-                    widget.*.isMouseDown = false;
-                    continue :mouseStateCheck MouseButtonStates.RELEASED;
-                },
-                MouseButtonStates.RELEASED=>
-                {
-                    //TODO while mouse not pressed.
-                    //probably do nothing here
-                }
-            }
-        }
     }
 
-    pub fn draw(self: *Button, widgetType: *WidgetType, widget: *Widget) void {
+    pub fn draw(self: *Button, widget: *Widget) !void {
         _ = self;
-        _ = widgetType;
 
-        const rect: c.SDL_Rect = c.SDL_Rect{
+        const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
             .x = widget.transform.position.x, //
             .y =widget.transform.position.y,
             .h = widget.size.y,
@@ -204,18 +120,105 @@ pub const Button = struct {
             }
         }
         
-        _ = c.SDL_SetRenderDrawColor(widget.context.*.renderer, color.r, color.g, color.b, color.a);
-        _ = c.SDL_RenderFillRect(widget.context.*.renderer, &rect);
+        _ = sdl.c.SDL_SetRenderDrawColor(widget.context.*.renderer, color.r, color.g, color.b, color.a);
+        _ = sdl.c.SDL_RenderFillRect(widget.context.*.renderer, &rect);
+        const font = sdl.c.TTF_OpenFont("/usr/share/fonts/truetype/ubuntu/Ubuntu-C.ttf", 64);
+        if (font == null)
+        {
+            return error.OpenFontFailed;
+        } 
+    
+        const newColor: sdl.c.SDL_Color = .{.r = 0,.g = 0, .b =0,.a = 255};
+        const surface = sdl.c.TTF_RenderText_Blended(font, widget.*.label, newColor);
+        if (surface == null)
+        {
+            return error.CreateSurfaceFailed;
+        }
+
+        const texture = sdl.c.SDL_CreateTextureFromSurface(widget.*.context.renderer, surface);
+        if (texture == null)
+        {
+            return error.CreateTextureFailed;
+        } 
+
+        sdl.c.SDL_FreeSurface(surface);
+        _ = sdl.c.SDL_RenderCopy(widget.*.context.renderer, texture, null, &rect);
     }
 };
 
 pub const CheckBox = struct {
     checked: bool = false,
 
-    pub fn draw(self: *Button, widgetType: *WidgetType, widget: *Widget) void {
-        _ = self;
-        _ = widget;
-        _ = widgetType;
+    onCheckStateChanged: ?*const fn(widget: *Widget, newState: bool) void = null,
+
+    pub fn update(self: *CheckBox, widget: *Widget) void{
+        
+        //if it's hovered and just clicked, flip state
+        if (widget.*.hoverState == WidgetHoverStates.JUST_NOW_HOVERED or 
+            widget.*.hoverState == WidgetHoverStates.HOVERED)
+        {
+            
+            if (widget.*.context.mouseLeft == MouseButtonStates.JUST_NOW_PRESSED)
+            {
+                if (self.checked)
+                {
+                    self.checked = false;
+                }
+                else
+                {
+                    self.checked = true;
+                }
+                
+                if (self.onCheckStateChanged) |callback|
+                {
+                    callback(widget, self.checked);
+                }
+            }
+        }
+    }
+
+    pub fn draw(self: *CheckBox, widget: *Widget) !void {
+
+        const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
+            .x = widget.transform.position.x, //
+            .y =widget.transform.position.y,
+            .h = widget.size.y,
+            .w = widget.size.x,
+        };
+
+        var color: RGBAColor = widget.color;
+
+        if (widget.*.hoverState == WidgetHoverStates.HOVERED)
+        {
+            //lighten the color just a bit
+            color.r +|= 30;
+            color.g +|= 30;
+            color.b +|= 30;
+            
+        }
+
+        _ = sdl.c.SDL_SetRenderDrawColor(widget.context.*.renderer, color.r, color.g, color.b, color.a);
+        _ = sdl.c.SDL_RenderFillRect(widget.context.*.renderer, &rect);
+
+        //fill in the center green if it's checked
+        if (self.checked)
+        {
+            _ = sdl.c.SDL_SetRenderDrawColor(widget.context.*.renderer, 0, 200, 0, 255);
+        }
+        else 
+        {
+            _ = sdl.c.SDL_SetRenderDrawColor(widget.context.*.renderer, 50, 50, 50, 255);
+        }
+            const border = 10;
+
+            const checked_rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
+            .x = widget.transform.position.x + border, //
+            .y =widget.transform.position.y + border,
+            .h = widget.size.y - (2*border),
+            .w = widget.size.x - (2*border),
+            };
+
+            _ = sdl.c.SDL_RenderFillRect(widget.context.*.renderer, &checked_rect);
     }
 };
 
@@ -224,30 +227,71 @@ pub const Slider = struct {
     maxValue: u32 = 100,
     currentValue: u32 = 0,
 
-    pub fn draw(self: *Button, widgetType: *WidgetType, widget: *Widget) void {
+    pub fn draw(self: *Slider, widget: *Widget) !void 
+    {
         _ = self;
         _ = widget;
-        _ = widgetType;
     }
+};
+
+pub const Label = struct {
+     value: []const u8 = "",
+
+     pub fn draw(self: *Label, widget: *Widget) !void
+     {
+        _ = self;
+
+        const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
+            .x = widget.transform.position.x, //
+            .y =widget.transform.position.y,
+            .h = widget.size.y,
+            .w = widget.size.x,
+        };
+
+        const font = sdl.c.TTF_OpenFont("/usr/share/fonts/truetype/ubuntu/Ubuntu-C.ttf", 64);
+        if (font == null)
+        {
+            return error.OpenFontFailed;
+        } 
+    
+        const newColor: sdl.c.SDL_Color = .{.r = widget.*.color.r,.g = widget.*.color.g, .b =widget.*.color.b,.a = 255};
+        const surface = sdl.c.TTF_RenderText_Blended(font, widget.*.label, newColor);
+        if (surface == null)
+        {
+            return error.CreateSurfaceFailed;
+        }
+
+        const texture = sdl.c.SDL_CreateTextureFromSurface(widget.*.context.renderer, surface);
+        if (texture == null)
+        {
+            return error.CreateTextureFailed;
+        } 
+
+        sdl.c.SDL_FreeSurface(surface);
+        _ = sdl.c.SDL_RenderCopy(widget.*.context.renderer, texture, null, &rect);
+     }
 };
 
 pub const WidgetType = union(enum) {
     Button: Button,
     CheckBox: CheckBox,
     Slider: Slider,
+    Label: Label,
 
     pub fn update(self: *WidgetType, widget: *Widget) void
     {
         switch(self.*) {
-            .Button => |*button| button.update(self,widget),
+            .Button => |*button| button.update(widget),
+            .CheckBox => |*checkbox| checkbox.update(widget),
             else => {},
         }
     }
 
-    pub fn draw(self: *WidgetType, widget: *Widget) void {
+    pub fn draw(self: *WidgetType, widget: *Widget) !void {
         switch (self.*) {
-            .Button => |*button| button.draw(self, widget),
-            //.CheckBox => |*checkBox| checkBox.draw(self, widget),
+            .Button => |*button| try button.draw(widget),
+            .CheckBox => |*checkBox| try checkBox.draw(widget),
+            .Label => |*label| try label.draw(widget),
             //.Slider => |*slider| slider.draw(self, widget),
             else => {},
         }
@@ -256,9 +300,9 @@ pub const WidgetType = union(enum) {
 
 pub const Widget = struct {
     //state data
-    label: []const u8 = "",
-    transform: Transform, //
-    size: Vec2(i32), //length,width
+    label: [*c]const u8 = "", //TODO: Make this not have to be a *c array. It's needed for SDL_ttf for now.
+    transform: Transform, 
+    size: Vec2(i32),
     color: RGBAColor,
     parent: *Widget = undefined,
     context: *const UIContext = undefined,
@@ -273,10 +317,99 @@ pub const Widget = struct {
     widgetType: WidgetType,
 
     pub fn update(self: *Widget) void {
+        const mousePos = self.context.*.mouseLocation;
+        const widgetLocation = self.transform.position;
+
+        //are we currently hovered?
+        const latestHoverState = (mousePos.x >= widgetLocation.x) and
+                            (mousePos.x <= widgetLocation.x + self.size.x) and
+                            (mousePos.y >= widgetLocation.y) and
+                            (mousePos.y <= widgetLocation.y + self.size.y);
+
+        hoverStateCheck: switch(self.hoverState)
+        {
+            WidgetHoverStates.UNHOVERED=>
+            {
+                
+                if (true == latestHoverState) //we were unhovered, and we just stared
+                {
+                    self.hoverState = WidgetHoverStates.HOVERED;
+                    continue: hoverStateCheck WidgetHoverStates.JUST_NOW_HOVERED;
+                }
+                else 
+                {
+                    //TODO do something while remaining unhovered?
+                }
+            },
+            WidgetHoverStates.JUST_NOW_HOVERED=>
+            {
+                if (self.onHovered) |callback|
+                {
+                    callback(self);
+                }
+                continue: hoverStateCheck WidgetHoverStates.HOVERED;
+            },
+            WidgetHoverStates.HOVERED=>
+            {
+                if (false == latestHoverState) //we were hovered, now we're not
+                {
+                    self.hoverState = WidgetHoverStates.UNHOVERED;
+                    continue: hoverStateCheck WidgetHoverStates.JUST_NOW_UNHOVERED;
+                }
+                else 
+                {
+                    //TODO do something while remaining hovered
+                }
+            },
+            WidgetHoverStates.JUST_NOW_UNHOVERED=>
+            {
+                if (self.onUnhovered) |callback|
+                {
+                    callback(self);
+                }
+                continue: hoverStateCheck WidgetHoverStates.UNHOVERED;
+            }
+        }
+
+        //don't even try to run onClick if you're not hovered. Makes no sense.
+        if (true == latestHoverState)  
+        {
+            mouseStateCheck: switch(self.context.mouseLeft)
+            {
+                MouseButtonStates.JUST_NOW_PRESSED=>
+                {
+                    if (self.onMouseDown) |callback|
+                    {
+                        callback(self);
+                    }
+                    self.isMouseDown = true;
+                    continue :mouseStateCheck MouseButtonStates.PRESSED;
+                },
+                MouseButtonStates.PRESSED=>
+                {
+                    //TODO mouse being held
+                },
+                MouseButtonStates.JUST_NOW_RELEASED=>
+                {
+                    if (self.onMouseUp) |callback|
+                    {
+                        callback(self);
+                    }
+                    self.isMouseDown = false;
+                    continue :mouseStateCheck MouseButtonStates.RELEASED;
+                },
+                MouseButtonStates.RELEASED=>
+                {
+                    //TODO while mouse not pressed.
+                    //probably do nothing here
+                }
+            }
+        }
+
         self.widgetType.update(self);
     }
 
-    pub fn draw(self: *Widget) void {
-        self.widgetType.draw(self);
+    pub fn draw(self: *Widget) !void {
+        try self.widgetType.draw(self);
     }
 };

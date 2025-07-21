@@ -3,22 +3,43 @@
 //! @Zane Youmans
 const std = @import("std");
 pub const types = @import("sdl_types.zig");
-const sdl = @cImport({
+pub const c = @cImport({
     @cInclude("SDL2/SDL.h");
+    @cInclude("SDL2/SDL_ttf.h");
 });
 
-pub const WindowPtr = ?*sdl.SDL_Window;
-pub const RendererPtr = ?*sdl.struct_SDL_Renderer;
+pub const WindowPtr = ?*c.SDL_Window;
+pub const RendererPtr = ?*c.struct_SDL_Renderer;
+
+
+pub const Event = c.SDL_Event;
+
+pub const EventsEnum = enum(u32) {
+    WINDOW_EVENT = c.SDL_WINDOWEVENT, //
+    WINDOW_QUIT = c.SDL_QUIT,
+    WINDOW_RESIZED = c.SDL_WINDOWEVENT_RESIZED,
+    MOUSE_MOTION = c.SDL_MOUSEMOTION,
+    MOUSE_BUTTONUP = c.SDL_MOUSEBUTTONUP,
+    MOUSE_BUTTONDOWN = c.SDL_MOUSEBUTTONDOWN,
+    _,
+};
+
+
 
 pub fn Init() !void {
-    if (sdl.SDL_Init(sdl.SDL_INIT_VIDEO) != 0) {
-        std.debug.print("SDL_Init Error: {s}\n", .{sdl.SDL_GetError()});
+    if (c.SDL_Init(c.SDL_INIT_VIDEO) != 0) {
+        std.debug.print("SDL_Init Error: {s}\n", .{c.SDL_GetError()});
         return error.SDLInitFailed;
     }
+
+    if (c.TTF_Init() != 0) {
+    std.debug.print("TTF_Init failed: {s}\n", .{c.TTF_GetError()});
+    return error.TTFInitFailed;
+}
 }
 
 pub fn Quit() void {
-    sdl.SDL_Quit();
+    c.SDL_Quit();
 }
 
 pub const Window = struct {
@@ -30,17 +51,17 @@ pub const Window = struct {
         std.mem.copyForwards(u8, dst, title);
         defer allocator.free(dst);
 
-        const window = sdl.SDL_CreateWindow(
+        const window = c.SDL_CreateWindow(
             dst.ptr,
-            sdl.SDL_WINDOWPOS_CENTERED,
-            sdl.SDL_WINDOWPOS_CENTERED,
+            c.SDL_WINDOWPOS_CENTERED,
+            c.SDL_WINDOWPOS_CENTERED,
             width,
             height,
-            sdl.SDL_WINDOW_SHOWN | sdl.SDL_WINDOW_RESIZABLE,
+            c.SDL_WINDOW_SHOWN | c.SDL_WINDOW_RESIZABLE,
         );
 
         if (window == null) {
-            std.debug.print("SDL_CreateWindow Error: {s}\n", .{sdl.SDL_GetError()});
+            std.debug.print("SDL_CreateWindow Error: {s}\n", .{c.SDL_GetError()});
             return error.SDLWindowCreationFailed;
         }
 
@@ -49,22 +70,22 @@ pub const Window = struct {
 
     pub fn destroyWindow(window: WindowPtr) void {
         if (window) |w| {
-            sdl.SDL_DestroyWindow(w);
+            c.SDL_DestroyWindow(w);
         }
     }
 };
 
 pub const Renderer = struct {
     pub fn createRenderer(window: WindowPtr) !RendererPtr {
-        const renderer = sdl.SDL_CreateRenderer(window, -1, sdl.SDL_RENDERER_ACCELERATED);
+        const renderer = c.SDL_CreateRenderer(window, -1, c.SDL_RENDERER_ACCELERATED);
         if (renderer == null) {
-            std.debug.print("SDL_CreateRenderer Error: {s}\n", .{sdl.SDL_GetError()});
+            std.debug.print("SDL_CreateRenderer Error: {s}\n", .{c.SDL_GetError()});
             return error.SDLRendererCreationFailed;
         }
         return renderer;
     }
 
     pub fn destroyRenderer(renderer: RendererPtr) void {
-        sdl.SDL_DestroyRenderer(renderer);
+        c.SDL_DestroyRenderer(renderer);
     }
 };

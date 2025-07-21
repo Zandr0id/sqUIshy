@@ -1,9 +1,6 @@
 const std = @import("std");
 const sdl = @import("../sdl/sdl.zig");
 const widgets = @import("widgets.zig");
-const c = @cImport({
-    @cInclude("SDL2/SDL.h");
-});
 
 const GuiAppErrors = error{
 
@@ -13,6 +10,7 @@ pub const GuiAppOptions = struct{
     startingWindowSize: widgets.Vec2(i32) = .{.x = 0, .y = 0},
     appTitle: []const u8,
     allocator: std.mem.Allocator,
+    backgroundColor: widgets.RGBAColor = .{.r= 0,.g = 0, .b = 0, .a = 255}
 };
 
 pub const GuiApp = struct{
@@ -62,14 +60,18 @@ pub const GuiApp = struct{
         //set this to clean up at the end
         defer self.appWidgets.deinit();
 
-        var event: sdl.types.Event = undefined;
+        var event: sdl.Event = undefined;
 
         self.running = true;
         while (self.running) 
         {
             //clear the screen
-            _ = c.SDL_SetRenderDrawColor(self.renderer, 0, 0, 0, 255);
-            _ = c.SDL_RenderClear(self.renderer);
+            _ = sdl.c.SDL_SetRenderDrawColor(self.renderer, 
+                                            self.options.backgroundColor.r,
+                                            self.options.backgroundColor.g, 
+                                            self.options.backgroundColor.b,
+                                            self.options.backgroundColor.a);
+            _ = sdl.c.SDL_RenderClear(self.renderer);
 
             //check if the mouse states need to transition to their steady states after one frame
             if (self.context.mouseLeft == widgets.MouseButtonStates.JUST_NOW_PRESSED)
@@ -82,18 +84,18 @@ pub const GuiApp = struct{
             }
 
             //run the event loop
-            while (c.SDL_PollEvent(&event) != 0) {
-                const event_enum: sdl.types.EventsEnum = @enumFromInt(event.type);
+            while (sdl.c.SDL_PollEvent(&event) != 0) {
+                const event_enum: sdl.EventsEnum = @enumFromInt(event.type);
                 switch (event_enum) {
-                    sdl.types.EventsEnum.WINDOW_QUIT => {
+                    sdl.EventsEnum.WINDOW_QUIT => {
                         self.running = false;
                     },
 
                     //window events are a sub-catagory
-                    sdl.types.EventsEnum.WINDOW_EVENT => {
-                        const window_event_enum: sdl.types.EventsEnum = @enumFromInt(event.window.event);
+                    sdl.EventsEnum.WINDOW_EVENT => {
+                        const window_event_enum: sdl.EventsEnum = @enumFromInt(event.window.event);
                         switch (window_event_enum) {
-                            sdl.types.EventsEnum.WINDOW_RESIZED => {
+                            sdl.EventsEnum.WINDOW_RESIZED => {
                                 self.context.windowSize.x = event.window.data1;
                                 self.context.windowSize.y = event.window.data2;
                                 std.debug.print("Resize to {d}x{d}\n", .{ event.window.data1, event.window.data2 });
@@ -101,14 +103,14 @@ pub const GuiApp = struct{
                             else => {},
                         }
                     },
-                    sdl.types.EventsEnum.MOUSE_MOTION =>{
+                    sdl.EventsEnum.MOUSE_MOTION =>{
                         self.context.mouseLocation.x = event.motion.x;
                         self.context.mouseLocation.y = event.motion.y;
                     },
-                    sdl.types.EventsEnum.MOUSE_BUTTONDOWN =>{
+                    sdl.EventsEnum.MOUSE_BUTTONDOWN =>{
                         self.context.mouseLeft = widgets.MouseButtonStates.JUST_NOW_PRESSED;
                     },
-                    sdl.types.EventsEnum.MOUSE_BUTTONUP =>{
+                    sdl.EventsEnum.MOUSE_BUTTONUP =>{
                         self.context.mouseLeft = widgets.MouseButtonStates.JUST_NOW_RELEASED;
                     },
                     else => {},
@@ -118,16 +120,16 @@ pub const GuiApp = struct{
             for (self.appWidgets.items) |*w|
             {
                 w.update();
-                w.draw();
+               try w.draw();
             }
 
             //draw mouse crosshairs
-            _ = c.SDL_SetRenderDrawColor(self.renderer, 255, 100, 0, 255);
-            _ = c.SDL_RenderDrawLine(self.renderer, self.context.mouseLocation.x, 0, self.context.mouseLocation.x, self.context.windowSize.y);
-            _ = c.SDL_RenderDrawLine(self.renderer, 0, self.context.mouseLocation.y, self.context.windowSize.x, self.context.mouseLocation.y);
+            _ = sdl.c.SDL_SetRenderDrawColor(self.renderer, 255, 100, 0, 255);
+            _ = sdl.c.SDL_RenderDrawLine(self.renderer, self.context.mouseLocation.x, 0, self.context.mouseLocation.x, self.context.windowSize.y);
+            _ = sdl.c.SDL_RenderDrawLine(self.renderer, 0, self.context.mouseLocation.y, self.context.windowSize.x, self.context.mouseLocation.y);
 
-            c.SDL_RenderPresent(self.renderer);
-            c.SDL_Delay(16);
+            sdl.c.SDL_RenderPresent(self.renderer);
+            sdl.c.SDL_Delay(16);
         }
     }
 };
