@@ -112,6 +112,9 @@ pub fn Button(comptime WrapperType: type) type{
                 }
             }
             
+            //TODO: Open fonts somewhere once and make them accessable to all widgets
+            //Perhaps up at the GuiApp level
+
             _ = sdl.c.SDL_SetRenderDrawColor(widget.*.owningGui.*.renderer, color.r, color.g, color.b, color.a);
             _ = sdl.c.SDL_RenderFillRect(widget.*.owningGui.*.renderer, &rect);
             const font = sdl.c.TTF_OpenFont("/usr/share/fonts/truetype/ubuntu/Ubuntu-C.ttf", 64);
@@ -132,9 +135,10 @@ pub fn Button(comptime WrapperType: type) type{
             {
                 return error.CreateTextureFailed;
             } 
-
-            sdl.c.SDL_FreeSurface(surface);
             _ = sdl.c.SDL_RenderCopy(widget.*.owningGui.*.renderer, texture, null, &rect);
+            sdl.c.SDL_DestroyTexture(texture);
+            sdl.c.SDL_FreeSurface(surface);
+            sdl.c.TTF_CloseFont(font);
         }
     };
 }
@@ -246,6 +250,9 @@ pub fn Label(comptime WrapperType: type) type
                 .w = widget.size.x,
             };
 
+            //TODO: Open fonts somewhere once and make them accessable to all widgets
+            //Perhaps up at the GuiApp level
+
             const font = sdl.c.TTF_OpenFont("/usr/share/fonts/truetype/ubuntu/Ubuntu-C.ttf", 64);
             if (font == null)
             {
@@ -265,8 +272,10 @@ pub fn Label(comptime WrapperType: type) type
                 return error.CreateTextureFailed;
             } 
 
-            sdl.c.SDL_FreeSurface(surface);
             _ = sdl.c.SDL_RenderCopy(widget.*.owningGui.*.renderer, texture, null, &rect);
+            sdl.c.SDL_DestroyTexture(texture);
+            sdl.c.SDL_FreeSurface(surface);
+            sdl.c.TTF_CloseFont(font);
         }
     };
 }
