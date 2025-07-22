@@ -118,6 +118,7 @@ pub fn Button(comptime WrapperType: type) type{
             _ = sdl.c.SDL_SetRenderDrawColor(widget.*.owningGui.*.renderer, color.r, color.g, color.b, color.a);
             _ = sdl.c.SDL_RenderFillRect(widget.*.owningGui.*.renderer, &rect);
             const font = sdl.c.TTF_OpenFont("/usr/share/fonts/truetype/ubuntu/Ubuntu-C.ttf", 64);
+            defer sdl.c.TTF_CloseFont(font);
             if (font == null)
             {
                 return error.OpenFontFailed;
@@ -125,20 +126,21 @@ pub fn Button(comptime WrapperType: type) type{
         
             const newColor: sdl.c.SDL_Color = .{.r = 0,.g = 0, .b =0,.a = 255};
             const surface = sdl.c.TTF_RenderText_Blended(font, widget.*.label, newColor);
+            defer sdl.c.SDL_FreeSurface(surface);
             if (surface == null)
             {
                 return error.CreateSurfaceFailed;
             }
 
             const texture = sdl.c.SDL_CreateTextureFromSurface(widget.*.owningGui.*.renderer, surface);
+            defer sdl.c.SDL_DestroyTexture(texture);
             if (texture == null)
             {
                 return error.CreateTextureFailed;
             } 
             _ = sdl.c.SDL_RenderCopy(widget.*.owningGui.*.renderer, texture, null, &rect);
-            sdl.c.SDL_DestroyTexture(texture);
-            sdl.c.SDL_FreeSurface(surface);
-            sdl.c.TTF_CloseFont(font);
+            
+            
         }
     };
 }
@@ -254,6 +256,7 @@ pub fn Label(comptime WrapperType: type) type
             //Perhaps up at the GuiApp level
 
             const font = sdl.c.TTF_OpenFont("/usr/share/fonts/truetype/ubuntu/Ubuntu-C.ttf", 64);
+            defer sdl.c.TTF_CloseFont(font);
             if (font == null)
             {
                 return error.OpenFontFailed;
@@ -261,21 +264,20 @@ pub fn Label(comptime WrapperType: type) type
         
             const newColor: sdl.c.SDL_Color = .{.r = widget.*.color.r,.g = widget.*.color.g, .b =widget.*.color.b,.a = 255};
             const surface = sdl.c.TTF_RenderText_Blended(font, widget.*.label, newColor);
+            defer sdl.c.SDL_FreeSurface(surface);
             if (surface == null)
             {
                 return error.CreateSurfaceFailed;
             }
 
             const texture = sdl.c.SDL_CreateTextureFromSurface(widget.*.owningGui.*.renderer, surface);
+            defer sdl.c.SDL_DestroyTexture(texture);
             if (texture == null)
             {
                 return error.CreateTextureFailed;
             } 
 
             _ = sdl.c.SDL_RenderCopy(widget.*.owningGui.*.renderer, texture, null, &rect);
-            sdl.c.SDL_DestroyTexture(texture);
-            sdl.c.SDL_FreeSurface(surface);
-            sdl.c.TTF_CloseFont(font);
         }
     };
 }
