@@ -119,13 +119,6 @@ pub fn GuiApp(comptime WrapperType: type) type {
             self.running = true;
             while (self.running) 
             {
-                //clear the screen
-                //_ = sdl.c.SDL_SetRenderDrawColor(self.renderer, 
-                //                                self.options.backgroundColor.r,
-               //                                 self.options.backgroundColor.g, 
-                //                                self.options.backgroundColor.b,
-                //                                self.options.backgroundColor.a);
-                //_ = sdl.c.SDL_RenderClear(self.renderer);
                 if (self.renderer) |r|
                 {
                     sdl.Renderer.clearScreenToColor(r, self.options.backgroundColor);
