@@ -46,26 +46,6 @@ pub fn Vec2(comptime T: type) type {
     };
 }
 
-pub const RGBAColor = struct {
-    r: u8 = 0,
-    g: u8 = 0,
-    b: u8 = 0,
-    a: u8 = 0,
-
-    pub fn Create(r: u8, g: u8, b: u8, a: u8) RGBAColor {
-        return RGBAColor{
-            .r = r, //
-            .g = g,
-            .b = b,
-            .a = a,
-        };
-    }
-
-    pub fn AsInt32() u32 {
-        return (.r << 24) + (.g << 16) + (.b << 8) + .a;
-    }
-};
-
 pub const Transform = struct {
     position: Vec2(i32) = .{ .x = 0, .y = 0 }, //x,y
     rotation: f32 = undefined, //degrees
@@ -94,7 +74,7 @@ pub fn Button(comptime WrapperType: type) type{
                 .w = widget.size.x,
             };
 
-            var color: RGBAColor = widget.color;
+            var color: sdl.types.RGBAColor = widget.color;
 
             if (widget.*.hoverState == WidgetHoverStates.HOVERED)
             {
@@ -191,7 +171,7 @@ pub fn CheckBox(comptime WrapperType: type) type
                 .w = widget.size.x,
             };
 
-            var color: RGBAColor = widget.color;
+            var color: sdl.types.RGBAColor = widget.color;
 
             if (widget.*.hoverState == WidgetHoverStates.HOVERED)
             {
@@ -342,7 +322,7 @@ pub fn Widget(comptime WrapperType: type) type
         label: []const u8 = "", //TODO: Make this not have to be a *c array. It's needed for SDL_ttf for now.
         transform: Transform, 
         size: Vec2(i32),
-        color: RGBAColor,
+        color: sdl.types.RGBAColor,
         parent: *Widget(WrapperType) = undefined,
         owningGui: *guiApp.GuiApp(WrapperType) = undefined,
         hoverState: WidgetHoverStates = WidgetHoverStates.UNHOVERED,

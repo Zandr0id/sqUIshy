@@ -1,4 +1,5 @@
 const std = @import("std");
+const sdl = @import("sdl/sdl_types.zig");
 const gui = @import("gui/GuiApp.zig");
 
 pub const App = struct {
@@ -73,7 +74,7 @@ pub const App = struct {
             .label = "Green Button",
             .widgetType = gui.widgets.WidgetType(App){ .Button = gui.widgets.Button(App){} }, //
             .size = .{ .x = 200, .y = 100},
-            .color = gui.widgets.RGBAColor.Create(0, 200, 0, 255),
+            .color = .{.r = 0, .g = 200, .b = 0, .a = 255},
             .transform = gui.widgets.Transform{ .position = .{ .x = 0, .y = 0 } },
             .onMouseUp = OnClick1
         };
@@ -84,7 +85,7 @@ pub const App = struct {
             .label = "Red Button",
             .widgetType = gui.widgets.WidgetType(App){ .Button = gui.widgets.Button(App){} }, //
             .size = .{ .x = 200, .y = 100},
-            .color = gui.widgets.RGBAColor.Create(200, 0, 0, 255),
+            .color = .{.r = 200, .g = 0, .b = 0, .a = 255},
             .transform = gui.widgets.Transform{ .position = .{ .x = 220, .y = 0 } },
             .onMouseUp = OnClick2
         };
@@ -95,7 +96,7 @@ pub const App = struct {
             .label = "not set",
             .widgetType = gui.widgets.WidgetType(App){ .Label = gui.widgets.Label(App){.fontIndex = largeFont}},
             .size = .{.x = 300, .y = 75},
-            .color = gui.widgets.RGBAColor.Create(100, 100, 0, 255),
+            .color = .{.r = 100, .g = 100, .b = 0, .a = 255},
             .transform = gui.widgets.Transform{ .position = .{ .x = 0, .y = 200 } },
         };        
 
@@ -105,7 +106,7 @@ pub const App = struct {
             .label = "Not checked",
             .widgetType = gui.widgets.WidgetType(App){ .Label = gui.widgets.Label(App){.fontIndex = smallFont}},
             .size = .{.x = 200, .y = 50},
-            .color = gui.widgets.RGBAColor.Create(200, 200, 200, 255),
+            .color = .{.r = 200, .g = 200, .b = 200, .a = 255},
             .transform = gui.widgets.Transform{ .position = .{ .x = 400, .y = 200 } },
         };        
 
@@ -118,7 +119,7 @@ pub const App = struct {
                     gui.widgets.CheckBox(App){.onCheckStateChanged = OnCheckToggle}
                     },
             .size = .{.x = 50, .y = 50},
-            .color = gui.widgets.RGBAColor.Create(200, 200, 200, 255),
+            .color = .{.r = 200, .g = 200, .b = 200, .a = 255},
             .transform = gui.widgets.Transform{ .position = .{ .x = 350, .y = 200 } },
         
         };

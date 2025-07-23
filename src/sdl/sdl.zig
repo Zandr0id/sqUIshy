@@ -11,7 +11,6 @@ pub const c = @cImport({
 pub const WindowPtr = ?*c.SDL_Window;
 pub const RendererPtr = ?*c.struct_SDL_Renderer;
 
-
 pub const Event = c.SDL_Event;
 
 pub const EventsEnum = enum(u32) {
@@ -87,5 +86,26 @@ pub const Renderer = struct {
 
     pub fn destroyRenderer(renderer: RendererPtr) void {
         c.SDL_DestroyRenderer(renderer);
+    }
+
+    pub fn setDrawColor(renderer: RendererPtr, color: types.RGBAColor) void
+    {
+        if (renderer) |r|
+        {
+            _ = c.SDL_SetRenderDrawColor(r, color.r, color.g, color.b, color.a);
+        }
+    }
+
+    pub fn clearScreenToColor(renderer: RendererPtr, color: types.RGBAColor) void
+    {
+        if (renderer) |r|
+        {
+            var oldColor: types.RGBAColor = .{};
+
+            _ = c.SDL_GetRenderDrawColor(r, &(oldColor.r), &(oldColor.g), &(oldColor.b), &(oldColor.a));
+            setDrawColor(renderer, color);
+            _ = c.SDL_RenderClear(r);
+            setDrawColor(r, oldColor);
+        }
     }
 };

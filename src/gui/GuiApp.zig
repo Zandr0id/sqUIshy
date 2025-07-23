@@ -12,7 +12,7 @@ pub const GuiAppOptions = struct{
     startingWindowSize: widgets.Vec2(i32) = .{.x = 0, .y = 0},
     appTitle: []const u8,
     allocator: std.mem.Allocator,
-    backgroundColor: widgets.RGBAColor = .{.r= 0,.g = 0, .b = 0, .a = 255}
+    backgroundColor: sdl.types.RGBAColor = .{.r= 0,.g = 0, .b = 0, .a = 255}
 };
 
 pub fn GuiApp(comptime WrapperType: type) type {
@@ -120,12 +120,16 @@ pub fn GuiApp(comptime WrapperType: type) type {
             while (self.running) 
             {
                 //clear the screen
-                _ = sdl.c.SDL_SetRenderDrawColor(self.renderer, 
-                                                self.options.backgroundColor.r,
-                                                self.options.backgroundColor.g, 
-                                                self.options.backgroundColor.b,
-                                                self.options.backgroundColor.a);
-                _ = sdl.c.SDL_RenderClear(self.renderer);
+                //_ = sdl.c.SDL_SetRenderDrawColor(self.renderer, 
+                //                                self.options.backgroundColor.r,
+               //                                 self.options.backgroundColor.g, 
+                //                                self.options.backgroundColor.b,
+                //                                self.options.backgroundColor.a);
+                //_ = sdl.c.SDL_RenderClear(self.renderer);
+                if (self.renderer) |r|
+                {
+                    sdl.Renderer.clearScreenToColor(r, self.options.backgroundColor);
+                }
 
                 //check if the mouse states need to transition to their steady states after one frame
                 if (self.environment.mouseLeft == widgets.MouseButtonStates.JUST_NOW_PRESSED)
