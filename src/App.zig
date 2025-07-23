@@ -66,6 +66,9 @@ pub const App = struct {
         //Init the gui with the options
         try self.gui.*.Init(self,appOptions);
 
+        const largeFont = try self.gui.*.AddFont("/usr/share/fonts/truetype/ubuntu/Ubuntu-C.ttf", 64);
+        const smallFont = try self.gui.*.AddFont("/usr/share/fonts/truetype/ubuntu/Ubuntu-C.ttf", 32);
+
         var button_template: AppWidget = .{
             .label = "Green Button",
             .widgetType = gui.widgets.WidgetType(App){ .Button = gui.widgets.Button(App){} }, //
@@ -90,9 +93,9 @@ pub const App = struct {
 
         var label_template: AppWidget = .{
             .label = "not set",
-            .widgetType = gui.widgets.WidgetType(App){ .Label = gui.widgets.Label(App){}},
+            .widgetType = gui.widgets.WidgetType(App){ .Label = gui.widgets.Label(App){.fontIndex = largeFont}},
             .size = .{.x = 300, .y = 75},
-            .color = gui.widgets.RGBAColor.Create(0, 0, 0, 255),
+            .color = gui.widgets.RGBAColor.Create(100, 100, 0, 255),
             .transform = gui.widgets.Transform{ .position = .{ .x = 0, .y = 200 } },
         };        
 
@@ -100,7 +103,7 @@ pub const App = struct {
 
         label_template = .{
             .label = "Not checked",
-            .widgetType = gui.widgets.WidgetType(App){ .Label = gui.widgets.Label(App){}},
+            .widgetType = gui.widgets.WidgetType(App){ .Label = gui.widgets.Label(App){.fontIndex = smallFont}},
             .size = .{.x = 200, .y = 50},
             .color = gui.widgets.RGBAColor.Create(200, 200, 200, 255),
             .transform = gui.widgets.Transform{ .position = .{ .x = 400, .y = 200 } },

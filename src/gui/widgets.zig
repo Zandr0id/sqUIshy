@@ -4,6 +4,7 @@
 const std = @import("std");
 const sdl = @import("../sdl/sdl.zig");
 const guiApp = @import("GuiApp.zig");
+const fonts = @import("fonts.zig");
 
 //const ttf = @cImport({@cInclude("SDL2/SDL_ttf.h");});
 
@@ -125,7 +126,10 @@ pub fn Button(comptime WrapperType: type) type{
             } 
         
             const newColor: sdl.c.SDL_Color = .{.r = 0,.g = 0, .b =0,.a = 255};
-            const surface = sdl.c.TTF_RenderText_Blended(font, widget.*.label, newColor);
+
+            const c_string: [*c]const u8 = @ptrCast(widget.*.label);
+
+            const surface = sdl.c.TTF_RenderText_Blended(font, c_string, newColor);
             defer sdl.c.SDL_FreeSurface(surface);
             if (surface == null)
             {
@@ -239,31 +243,47 @@ pub const Slider = struct {
 pub fn Label(comptime WrapperType: type) type
 {
     return struct {
+        fontIndex: usize,
         value: []const u8 = "",
 
         pub fn draw(self: *Label(WrapperType), widget: *Widget(WrapperType)) !void
         {
-            _ = self;
+   
+            //TODO: Open fonts somewhere once and make them accessable to all widgets
+            //Perhaps up at the GuiApp level
+
+            //const font = sdl.c.TTF_OpenFont("/usr/share/fonts/truetype/ubuntu/Ubuntu-C.ttf", 36);
+            //defer sdl.c.TTF_CloseFont(font);
+
+            //get the needed font from the list
+            const font: ?*fonts.Font = widget.*.owningGui.*.fonts.items[self.fontIndex-1];
+            if (font) |f|
+            {
+                _=f;
+            } 
+            else 
+            {
+                return error.OpenFontFailed;
+            }
+
+            //var h: c_int = undefined;
+            //var w: c_int = undefined;
+
+            //_ = sdl.c.TTF_SizeText(font, widget.*.label, &w, &h);
+
+            const dims = try font.?.TextSize(widget.*.label);
 
             const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
                 .x = widget.transform.position.x, //
                 .y =widget.transform.position.y,
-                .h = widget.size.y,
-                .w = widget.size.x,
+                .h = dims.h,
+                .w = dims.w,
             };
 
-            //TODO: Open fonts somewhere once and make them accessable to all widgets
-            //Perhaps up at the GuiApp level
-
-            const font = sdl.c.TTF_OpenFont("/usr/share/fonts/truetype/ubuntu/Ubuntu-C.ttf", 64);
-            defer sdl.c.TTF_CloseFont(font);
-            if (font == null)
-            {
-                return error.OpenFontFailed;
-            } 
-        
             const newColor: sdl.c.SDL_Color = .{.r = widget.*.color.r,.g = widget.*.color.g, .b =widget.*.color.b,.a = 255};
-            const surface = sdl.c.TTF_RenderText_Blended(font, widget.*.label, newColor);
+
+            const c_string: [*c]const u8 = @ptrCast(widget.*.label);
+            const surface = sdl.c.TTF_RenderText_Blended(font.?.font, c_string, newColor);
             defer sdl.c.SDL_FreeSurface(surface);
             if (surface == null)
             {
@@ -319,7 +339,7 @@ pub fn Widget(comptime WrapperType: type) type
         //state data
         const SelfType = @This();
 
-        label: [*c]const u8 = "", //TODO: Make this not have to be a *c array. It's needed for SDL_ttf for now.
+        label: []const u8 = "", //TODO: Make this not have to be a *c array. It's needed for SDL_ttf for now.
         transform: Transform, 
         size: Vec2(i32),
         color: RGBAColor,

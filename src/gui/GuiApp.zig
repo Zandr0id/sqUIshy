@@ -1,9 +1,11 @@
 const std = @import("std");
 const sdl = @import("../sdl/sdl.zig");
 pub const widgets = @import("widgets.zig");
+const fonts = @import("fonts.zig");
 
 const GuiAppErrors = error{
-    CantAddWidgetsWhileRunning
+    CantAddWidgetsWhileRunning,
+    CantAddFontsWhileRunning,
 };
 
 pub const GuiAppOptions = struct{
@@ -21,6 +23,7 @@ pub fn GuiApp(comptime WrapperType: type) type {
         window: sdl.WindowPtr = undefined,
         renderer: sdl.RendererPtr = undefined,
         appWidgets: std.ArrayList(*widgets.Widget(WrapperType)) = undefined,
+        fonts: std.ArrayList(*fonts.Font) = undefined,
         environment: struct {
             wrapperApp: *WrapperType = undefined,
             windowSize: widgets.Vec2(i32) = .{.x = 0, .y=0},
@@ -37,12 +40,40 @@ pub fn GuiApp(comptime WrapperType: type) type {
 
         pub fn Init(self: *GuiApp(WrapperType), wrapper: *WrapperType, options: GuiAppOptions) !void
         {
+            try sdl.Init();
+            errdefer sdl.Quit();
+
             self.options = options;
             self.environment = .{.windowSize = self.options.startingWindowSize, .wrapperApp = wrapper};
 
             //create the memory slaps to create widgets on
             self.arena = std.heap.ArenaAllocator.init(self.options.allocator);
             self.appWidgets = std.ArrayList(*widgets.Widget(WrapperType)).init(self.options.allocator);
+            self.fonts = std.ArrayList(*fonts.Font).init(self.options.allocator);
+        }
+
+        pub fn AddFont(self: *GuiApp(WrapperType) ,path: []const u8, size: u32) !usize
+        {
+
+            //TODO: maybe make a cleanup funtion for this?
+            errdefer self.*.arena.deinit();
+            errdefer self.*.appWidgets.deinit();
+            errdefer self.*.fonts.deinit();
+
+            //TODO just print warning and not crash?
+            if (self.running)
+            {
+                return error.CantAddWidgetsWhileRunning;
+            }
+
+            const allocator = self.arena.allocator();
+            const newFont = try allocator.create(fonts.Font);
+
+            try newFont.LoadFont(path, size);
+
+            try self.fonts.append(newFont);
+
+            return self.fonts.items.len;
         }
 
         pub fn AddWidget(self: *GuiApp(WrapperType), widget: widgets.Widget(WrapperType)) !*widgets.Widget(WrapperType)
@@ -63,7 +94,7 @@ pub fn GuiApp(comptime WrapperType: type) type {
         }
 
         pub fn Run(self: *GuiApp(WrapperType)) !void {
-            try sdl.Init();
+        
             defer sdl.Quit();
 
             self.window = try sdl.Window.createWindow(self.options.appTitle, self.options.startingWindowSize.x,self.options.startingWindowSize.y);
@@ -74,6 +105,7 @@ pub fn GuiApp(comptime WrapperType: type) type {
 
             //set this to clean up at the end
             defer self.appWidgets.deinit();
+            defer self.fonts.deinit();
             defer self.arena.deinit();
             
             var event: sdl.Event = undefined;
