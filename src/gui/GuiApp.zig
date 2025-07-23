@@ -40,8 +40,7 @@ pub fn GuiApp(comptime WrapperType: type) type {
 
         pub fn Init(self: *GuiApp(WrapperType), wrapper: *WrapperType, options: GuiAppOptions) !void
         {
-            try sdl.Init();
-            errdefer sdl.Quit();
+     
 
             self.options = options;
             self.environment = .{.windowSize = self.options.startingWindowSize, .wrapperApp = wrapper};
@@ -50,15 +49,24 @@ pub fn GuiApp(comptime WrapperType: type) type {
             self.arena = std.heap.ArenaAllocator.init(self.options.allocator);
             self.appWidgets = std.ArrayList(*widgets.Widget(WrapperType)).init(self.options.allocator);
             self.fonts = std.ArrayList(*fonts.Font).init(self.options.allocator);
+       
+            try sdl.Init();
+            errdefer self.CleanUp();
+        }
+
+        pub fn CleanUp(self: *GuiApp(WrapperType)) void
+        {
+            sdl.Quit();
+
+            self.*.arena.deinit();
+            self.*.appWidgets.deinit();
+            self.*.fonts.deinit();
         }
 
         pub fn AddFont(self: *GuiApp(WrapperType) ,path: []const u8, size: u32) !usize
         {
 
-            //TODO: maybe make a cleanup funtion for this?
-            errdefer self.*.arena.deinit();
-            errdefer self.*.appWidgets.deinit();
-            errdefer self.*.fonts.deinit();
+            errdefer self.CleanUp();
 
             //TODO just print warning and not crash?
             if (self.running)
@@ -78,6 +86,9 @@ pub fn GuiApp(comptime WrapperType: type) type {
 
         pub fn AddWidget(self: *GuiApp(WrapperType), widget: widgets.Widget(WrapperType)) !*widgets.Widget(WrapperType)
         {
+
+            errdefer self.CleanUp();
+
             if (self.running)
             {
                 return error.CantAddWidgetsWhileRunning;
@@ -95,7 +106,7 @@ pub fn GuiApp(comptime WrapperType: type) type {
 
         pub fn Run(self: *GuiApp(WrapperType)) !void {
         
-            defer sdl.Quit();
+            defer self.CleanUp();
 
             self.window = try sdl.Window.createWindow(self.options.appTitle, self.options.startingWindowSize.x,self.options.startingWindowSize.y);
             defer sdl.Window.destroyWindow(self.window);
@@ -103,11 +114,6 @@ pub fn GuiApp(comptime WrapperType: type) type {
             self.renderer  = try sdl.Renderer.createRenderer(self.window);
             defer sdl.Renderer.destroyRenderer(self.renderer);
 
-            //set this to clean up at the end
-            defer self.appWidgets.deinit();
-            defer self.fonts.deinit();
-            defer self.arena.deinit();
-            
             var event: sdl.Event = undefined;
 
             self.running = true;
