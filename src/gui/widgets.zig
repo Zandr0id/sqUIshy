@@ -321,7 +321,7 @@ pub fn Container(comptime WrapperType: type) type
         }
 
         //We're intentionally copying the newWidget by value here
-        pub fn addChildWidget(self: *Container(WrapperType), widget: *Widget(WrapperType), newWidget: Widget(WrapperType)) !*Widget(WrapperType)
+        pub fn addChildWidget(self: *Container(WrapperType), parentWidget: ?*Widget(WrapperType), newWidget: Widget(WrapperType)) !*Widget(WrapperType)
         {
             //if children widgets have been initialized, add a new
             if (self.childWidgets) |*children|
@@ -329,11 +329,14 @@ pub fn Container(comptime WrapperType: type) type
                 const allocator = self.arena.?.allocator();
                 const addedWidget = try allocator.create(Widget(WrapperType));
                 addedWidget.* = newWidget;
-                addedWidget.*.parent = widget;
 
-                if (widget.*.owningGui) |gui|
+                if (parentWidget) |widget|
                 {
-                    addedWidget.*.owningGui = gui;
+                    addedWidget.*.parent = widget;
+                    if (widget.*.owningGui) |gui|
+                    {
+                        addedWidget.*.owningGui = gui;
+                    }
                 }
 
                 try children.append(addedWidget);
@@ -460,7 +463,7 @@ pub fn Widget(comptime WrapperType: type) type
         transform: Transform, 
         size: Vec2(i32),
         color: sdl.types.RGBAColor,
-        parent: *Widget(WrapperType) = undefined,
+        parent: ?*Widget(WrapperType) = null,
         owningGui: ?*guiApp.GuiApp(WrapperType) = null,
         hoverState: WidgetHoverStates = WidgetHoverStates.UNHOVERED,
         isMouseDown: bool = false,

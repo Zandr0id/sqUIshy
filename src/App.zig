@@ -67,67 +67,73 @@ pub const App = struct {
         //Init the gui with the options
         try self.gui.*.Init(self,appOptions);
 
+        const rootWidget = self.gui.*.rootContainerWidget;
+
         const largeFont = try self.gui.*.AddFont("/usr/share/fonts/truetype/ubuntu/Ubuntu-C.ttf", 64);
         const smallFont = try self.gui.*.AddFont("/usr/share/fonts/truetype/ubuntu/Ubuntu-C.ttf", 32);
 
-        var button_template: AppWidget = .{
-            .label = "Green Button",
-            .widgetType = gui.widgets.WidgetType(App){ .Button = gui.widgets.Button(App){} }, //
-            .size = .{ .x = 200, .y = 100},
-            .color = .{.r = 0, .g = 200, .b = 0, .a = 255},
-            .transform = gui.widgets.Transform{ .position = .{ .x = 0, .y = 0 } },
-            .onMouseUp = OnClick1
-        };
+        if (rootWidget) |root|
+        {
 
-        self.button_1 = try self.gui.*.AddWidget(button_template);
+            var button_template: AppWidget = .{
+                .label = "Green Button",
+                .widgetType = gui.widgets.WidgetType(App){ .Button = gui.widgets.Button(App){} }, //
+                .size = .{ .x = 200, .y = 100},
+                .color = .{.r = 0, .g = 200, .b = 0, .a = 255},
+                .transform = gui.widgets.Transform{ .position = .{ .x = 0, .y = 0 } },
+                .onMouseUp = OnClick1
+            };
 
-        button_template = .{
-            .label = "Red Button",
-            .widgetType = gui.widgets.WidgetType(App){ .Button = gui.widgets.Button(App){} }, //
-            .size = .{ .x = 200, .y = 100},
-            .color = .{.r = 200, .g = 0, .b = 0, .a = 255},
-            .transform = gui.widgets.Transform{ .position = .{ .x = 220, .y = 0 } },
-            .onMouseUp = OnClick2
-        };
+            self.button_1 = try root.*.widgetType.Container.addChildWidget(rootWidget,button_template);
 
-        self.button_2 = try self.gui.*.AddWidget(button_template);
+            button_template = .{
+                .label = "Red Button",
+                .widgetType = gui.widgets.WidgetType(App){ .Button = gui.widgets.Button(App){} }, //
+                .size = .{ .x = 200, .y = 100},
+                .color = .{.r = 200, .g = 0, .b = 0, .a = 255},
+                .transform = gui.widgets.Transform{ .position = .{ .x = 220, .y = 0 } },
+                .onMouseUp = OnClick2
+            };
 
-        var label_template: AppWidget = .{
-            .label = "not set",
-            .widgetType = gui.widgets.WidgetType(App){ .Label = gui.widgets.Label(App){.fontIndex = largeFont}},
-            .size = .{.x = 300, .y = 75},
-            .color = .{.r = 100, .g = 100, .b = 0, .a = 255},
-            .transform = gui.widgets.Transform{ .position = .{ .x = 0, .y = 200 } },
-        };        
+            self.button_2 = try root.*.widgetType.Container.addChildWidget(rootWidget,button_template);
 
-        self.label_1 = try self.gui.*.AddWidget(label_template);
+            var label_template: AppWidget = .{
+                .label = "not set",
+                .widgetType = gui.widgets.WidgetType(App){ .Label = gui.widgets.Label(App){.fontIndex = largeFont}},
+                .size = .{.x = 300, .y = 75},
+                .color = .{.r = 100, .g = 100, .b = 0, .a = 255},
+                .transform = gui.widgets.Transform{ .position = .{ .x = 0, .y = 200 } },
+            };        
 
-        label_template = .{
-            .label = "Not checked",
-            .widgetType = gui.widgets.WidgetType(App){ .Label = gui.widgets.Label(App){.fontIndex = smallFont}},
-            .size = .{.x = 200, .y = 50},
-            .color = .{.r = 200, .g = 200, .b = 200, .a = 255},
-            .transform = gui.widgets.Transform{ .position = .{ .x = 400, .y = 200 } },
-        };        
+            self.label_1 = try root.*.widgetType.Container.addChildWidget(rootWidget,label_template);
 
-        self.label_2 = try self.gui.*.AddWidget(label_template);
+            label_template = .{
+                .label = "Not checked",
+                .widgetType = gui.widgets.WidgetType(App){ .Label = gui.widgets.Label(App){.fontIndex = smallFont}},
+                .size = .{.x = 200, .y = 50},
+                .color = .{.r = 200, .g = 200, .b = 200, .a = 255},
+                .transform = gui.widgets.Transform{ .position = .{ .x = 400, .y = 200 } },
+            };        
 
-        const checkbox_template: AppWidget = .{
-            .label = "check",
-            .widgetType = gui.widgets.WidgetType(App){ 
-                    .CheckBox = 
-                    gui.widgets.CheckBox(App){.onCheckStateChanged = OnCheckToggle}
-                    },
-            .size = .{.x = 50, .y = 50},
-            .color = .{.r = 200, .g = 200, .b = 200, .a = 255},
-            .transform = gui.widgets.Transform{ .position = .{ .x = 350, .y = 200 } },
-        
-        };
+            self.label_2 = try root.*.widgetType.Container.addChildWidget(rootWidget,label_template);
 
-        self.checkbox = try self.gui.*.AddWidget(checkbox_template);
+            const checkbox_template: AppWidget = .{
+                .label = "check",
+                .widgetType = gui.widgets.WidgetType(App){ 
+                        .CheckBox = 
+                        gui.widgets.CheckBox(App){.onCheckStateChanged = OnCheckToggle}
+                        },
+                .size = .{.x = 50, .y = 50},
+                .color = .{.r = 200, .g = 200, .b = 200, .a = 255},
+                .transform = gui.widgets.Transform{ .position = .{ .x = 350, .y = 200 } },
+            
+            };
 
-        //run the app until it quits
-        try self.gui.*.Run();
+            self.checkbox = try root.*.widgetType.Container.addChildWidget(rootWidget,checkbox_template);
+
+            //run the app until it quits
+            try self.gui.*.Run();
+        }
     }
 
 };
