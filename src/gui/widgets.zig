@@ -307,7 +307,7 @@ pub fn Label(comptime WrapperType: type) type
 pub fn Container(comptime WrapperType: type) type
 {
     return struct {
-        allocator: std.mem.Allocator,
+        allocator: ?std.mem.Allocator = null,
         childWidgets: ?std.ArrayList(*Widget(WrapperType)) = null,
         arena: ?std.heap.ArenaAllocator = null,
         showBorder: bool = false,
@@ -320,24 +320,27 @@ pub fn Container(comptime WrapperType: type) type
             self.childWidgets = std.ArrayList(*Widget(WrapperType)).init(allocator);
         }
 
-        pub fn addChildWidget(self: *Container(WrapperType), widget: *Widget(WrapperType), newWidget: *Widget(WrapperType)) !*Widget(WrapperType)
+        //We're intentionally copying the newWidget by value here
+        pub fn addChildWidget(self: *Container(WrapperType), widget: *Widget(WrapperType), newWidget: Widget(WrapperType)) !*Widget(WrapperType)
         {
             //if children widgets have been initialized, add a new
-            if (self.childWidgets) |children|
+            if (self.childWidgets) |*children|
             {
-                
-                const allocator = self.arena.allocator();
+                const allocator = self.arena.?.allocator();
                 const addedWidget = try allocator.create(Widget(WrapperType));
                 addedWidget.* = newWidget;
-                addedWidget.*.parent = self;
+                addedWidget.*.parent = widget;
 
                 if (widget.*.owningGui) |gui|
                 {
                     addedWidget.*.owningGui = gui;
                 }
 
-                try children.append(newWidget);
+                try children.append(addedWidget);
+                return addedWidget;
             }
+
+            return WidgetErrors.ChildrenListNotCreated;
         }
 
         pub fn update(self: *Container(WrapperType), widget: *Widget(WrapperType)) !void
@@ -348,10 +351,12 @@ pub fn Container(comptime WrapperType: type) type
                 for(children.items) |child|
                 {
                     try child.update();
-                    return;
                 }
             }
-            return error.ChildrenListNotCreated;
+            else 
+            {
+                return error.ChildrenListNotCreated;
+            }
         }
 
         pub fn draw(self: *Container(WrapperType), widget: *Widget(WrapperType)) !void 
@@ -362,22 +367,33 @@ pub fn Container(comptime WrapperType: type) type
                 for(children.items) |child|
                 {
                     try child.draw();
-                    return;
                 }
             }
-            return error.ChildrenListNotCreated;
+            else 
+            {
+                return error.ChildrenListNotCreated;
+            }
         }
 
         pub fn shutdown(self: *Container(WrapperType)) void 
         {
             if (self.childWidgets) |children|
             {
-                for(children) |child|
+                for(children.items) |child|
                 {
-                    try child.shutdown();
+                    child.shutdown();
                 }
             }
 
+            if (self.arena) |arena|
+            {
+                arena.deinit();
+            }
+
+            if (self.childWidgets) |array|
+            {
+                array.deinit();
+            }
         }
 
     };
@@ -428,6 +444,7 @@ pub fn WidgetType(comptime WrapperType: type) type
         pub fn shutdown(self: *SelfType) void {
             switch (self.*) {
                 .Container => |*container| container.shutdown(),
+                else => {},
             }
         }
     };
@@ -464,15 +481,17 @@ pub fn Widget(comptime WrapperType: type) type
 
             if (self.owningGui) |gui|
             {
-   
+
                 const mousePos = gui.*.environment.mouseLocation;
                 const widgetLocation = self.transform.position;
 
                 //are we currently hovered?
                 const latestHoverState = (mousePos.x >= widgetLocation.x) and
-                                    (mousePos.x <= widgetLocation.x + self.size.x) and
+                                    (mousePos.x <= widgetLocation.x +| self.size.x) and
                                     (mousePos.y >= widgetLocation.y) and
-                                    (mousePos.y <= widgetLocation.y + self.size.y);
+                                    (mousePos.y <= widgetLocation.y +| self.size.y);
+
+                //std.debug.print("{}\n",.{self.hoverState});
 
                 hoverStateCheck: switch(self.hoverState)
                 {
@@ -565,8 +584,8 @@ pub fn Widget(comptime WrapperType: type) type
             try self.widgetType.draw(self);
         }
 
-        pub fn shutown(self: *Widget(WrapperType)) void {
-            try self.widgetType.shutdown();
+        pub fn shutdown(self: *Widget(WrapperType)) void {
+            self.widgetType.shutdown();
         }
     };
 }

@@ -6,6 +6,7 @@ const fonts = @import("fonts.zig");
 const GuiAppErrors = error{
     CantAddWidgetsWhileRunning,
     CantAddFontsWhileRunning,
+    RootContainerNotCreated,
 };
 
 pub const GuiAppOptions = struct{
@@ -22,8 +23,15 @@ pub fn GuiApp(comptime WrapperType: type) type {
 
         window: sdl.WindowPtr = undefined,
         renderer: sdl.RendererPtr = undefined,
-        appWidgets: std.ArrayList(*widgets.Widget(WrapperType)) = undefined,
+
+        //this root widget houses all the other wigets
+        rootContainerWidget: ?*widgets.Widget(WrapperType) = null,
+
+        //these are for tracking fonts as they are loaded
         fonts: std.ArrayList(*fonts.Font) = undefined,
+        arena: std.heap.ArenaAllocator = undefined,
+
+        //environment info should be accessable to all widgets within the root
         environment: struct {
             wrapperApp: *WrapperType = undefined,
             windowSize: widgets.Vec2(i32) = .{.x = 0, .y=0},
@@ -32,22 +40,29 @@ pub fn GuiApp(comptime WrapperType: type) type {
             mouseRight: widgets.MouseButtonStates = widgets.MouseButtonStates.RELEASED,
         } = undefined,
 
-        arena: std.heap.ArenaAllocator = undefined,
-
         options: GuiAppOptions = undefined,
-
         running: bool = false,
 
         pub fn Init(self: *GuiApp(WrapperType), wrapper: *WrapperType, options: GuiAppOptions) !void
         {
-     
 
             self.options = options;
             self.environment = .{.windowSize = self.options.startingWindowSize, .wrapperApp = wrapper};
-
-            //create the memory slaps to create widgets on
+            
             self.arena = std.heap.ArenaAllocator.init(self.options.allocator);
-            self.appWidgets = std.ArrayList(*widgets.Widget(WrapperType)).init(self.options.allocator);
+
+            //create the root container widget to house all other widgets
+            self.rootContainerWidget = try options.allocator.create(widgets.Widget(WrapperType));
+            self.rootContainerWidget.?.* = .{.transform = .{.position = .{ .x = 0, .y = 0 }},
+                                            .color = .{.r = 0, .g = 0 , .b=0,.a=0},
+                                            .label = "not set",
+                                            .widgetType = widgets.WidgetType(WrapperType){ .Container = .{}},
+                                            .size = .{.x = options.startingWindowSize.x, .y = options.startingWindowSize.y}};
+
+            self.rootContainerWidget.?.*.owningGui = self;
+            self.rootContainerWidget.?.*.widgetType.Container.init(self.rootContainerWidget.?, self.options.allocator);
+
+            //prep the list to accept fonts
             self.fonts = std.ArrayList(*fonts.Font).init(self.options.allocator);
        
             try sdl.Init();
@@ -59,7 +74,18 @@ pub fn GuiApp(comptime WrapperType: type) type {
             sdl.Quit();
 
             self.*.arena.deinit();
-            self.*.appWidgets.deinit();
+            //self.*.appWidgets.deinit();
+
+            //tell all child widgets to shutdown
+            if (self.rootContainerWidget) |root|
+            {
+                root.*.widgetType.shutdown();
+            }
+
+            //destory the root container
+            self.options.allocator.destroy(self.rootContainerWidget.?);
+
+            //clear out all fonts
             self.*.fonts.deinit();
         }
 
@@ -94,14 +120,18 @@ pub fn GuiApp(comptime WrapperType: type) type {
                 return error.CantAddWidgetsWhileRunning;
             }
             
-            const allocator = self.arena.allocator();
-            const newWidget = try allocator.create(widgets.Widget(WrapperType));
-            newWidget.* = widget;
-            newWidget.*.owningGui = self;
+            //const allocator = self.arena.allocator();
+           // const newWidget = try allocator.create(widgets.Widget(WrapperType));
+           // newWidget.* = widget;
+           // newWidget.*.owningGui = self;
 
-            try self.appWidgets.append(newWidget);
-
-            return newWidget;
+            if (self.rootContainerWidget) |root|
+            {
+                return try root.*.widgetType.Container.addChildWidget(root, widget);
+            }
+            else {
+                return error.RootContainerNotCreated;
+            }
         }
 
         pub fn Run(self: *GuiApp(WrapperType)) !void {
@@ -168,10 +198,11 @@ pub fn GuiApp(comptime WrapperType: type) type {
                     }
                 }
 
-                for (self.appWidgets.items) |w|
+                //for (self.appWidgets.items) |w|
+                if (self.rootContainerWidget) |root|
                 {
-                    try w.*.update();
-                    try w.*.draw();
+                    try root.*.update();
+                    try root.*.draw();
                 }
 
                 //draw mouse crosshairs
