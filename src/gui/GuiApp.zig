@@ -170,7 +170,7 @@ pub fn GuiApp(comptime WrapperType: type) type {
 
                 for (self.appWidgets.items) |w|
                 {
-                    w.*.update();
+                    try w.*.update();
                     try w.*.draw();
                 }
 

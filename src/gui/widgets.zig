@@ -12,6 +12,9 @@ const WidgetErrors = error{
     CreateSurfaceFailed,
     CreateTextureFailed,
     OpenFontFailed,
+    ChildrenListNotCreated,
+    WidgetArenaNotCreated,
+    NoOwningGuiSet,
 };
 
 pub const WidgetHoverStates = enum(u8){
@@ -55,14 +58,6 @@ pub const Transform = struct {
 pub fn Button(comptime WrapperType: type) type{
     
     return struct {
-        pub fn update(self: *Button(WrapperType), widget: *Widget(WrapperType)) void
-        {
-            _ = self;
-            _ = widget;
-
-            //Buttons don't really need to update anything unique to them since they don't hold any state
-
-        }
 
         pub fn draw(self: *Button(WrapperType), widget: *Widget(WrapperType)) !void {
             _ = self;
@@ -96,35 +91,40 @@ pub fn Button(comptime WrapperType: type) type{
             //TODO: Open fonts somewhere once and make them accessable to all widgets
             //Perhaps up at the GuiApp level
 
-            _ = sdl.c.SDL_SetRenderDrawColor(widget.*.owningGui.*.renderer, color.r, color.g, color.b, color.a);
-            _ = sdl.c.SDL_RenderFillRect(widget.*.owningGui.*.renderer, &rect);
-            const font = sdl.c.TTF_OpenFont("/usr/share/fonts/truetype/ubuntu/Ubuntu-C.ttf", 64);
-            defer sdl.c.TTF_CloseFont(font);
-            if (font == null)
+            if (widget.*.owningGui) |gui|
             {
-                return error.OpenFontFailed;
-            } 
-        
-            const newColor: sdl.c.SDL_Color = .{.r = 0,.g = 0, .b =0,.a = 255};
 
-            const c_string: [*c]const u8 = @ptrCast(widget.*.label);
+                _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, color.r, color.g, color.b, color.a);
+                _ = sdl.c.SDL_RenderFillRect(gui.*.renderer, &rect);
+                const font = sdl.c.TTF_OpenFont("/usr/share/fonts/truetype/ubuntu/Ubuntu-C.ttf", 64);
+                defer sdl.c.TTF_CloseFont(font);
+                if (font == null)
+                {
+                    return error.OpenFontFailed;
+                } 
+            
+                const newColor: sdl.c.SDL_Color = .{.r = 0,.g = 0, .b =0,.a = 255};
 
-            const surface = sdl.c.TTF_RenderText_Blended(font, c_string, newColor);
-            defer sdl.c.SDL_FreeSurface(surface);
-            if (surface == null)
-            {
-                return error.CreateSurfaceFailed;
+                const c_string: [*c]const u8 = @ptrCast(widget.*.label);
+
+                const surface = sdl.c.TTF_RenderText_Blended(font, c_string, newColor);
+                defer sdl.c.SDL_FreeSurface(surface);
+                if (surface == null)
+                {
+                    return error.CreateSurfaceFailed;
+                }
+
+                const texture = sdl.c.SDL_CreateTextureFromSurface(gui.*.renderer, surface);
+                defer sdl.c.SDL_DestroyTexture(texture);
+                if (texture == null)
+                {
+                    return error.CreateTextureFailed;
+                } 
+                _ = sdl.c.SDL_RenderCopy(gui.*.renderer, texture, null, &rect);
             }
-
-            const texture = sdl.c.SDL_CreateTextureFromSurface(widget.*.owningGui.*.renderer, surface);
-            defer sdl.c.SDL_DestroyTexture(texture);
-            if (texture == null)
-            {
-                return error.CreateTextureFailed;
-            } 
-            _ = sdl.c.SDL_RenderCopy(widget.*.owningGui.*.renderer, texture, null, &rect);
-            
-            
+            else {
+                return error.NoOwningGuiSet;
+            }
         }
     };
 }
@@ -136,29 +136,35 @@ pub fn CheckBox(comptime WrapperType: type) type
 
         onCheckStateChanged: ?*const fn(outer:*WrapperType, widget: *Widget(WrapperType), newState: bool) void = null,
 
-        pub fn update(self: *CheckBox(WrapperType), widget: *Widget(WrapperType)) void{
+        pub fn update(self: *CheckBox(WrapperType), widget: *Widget(WrapperType)) !void{
             
-            //if it's hovered and just clicked, flip state
-            if (widget.*.hoverState == WidgetHoverStates.JUST_NOW_HOVERED or 
-                widget.*.hoverState == WidgetHoverStates.HOVERED)
-            {
-                
-                if (widget.*.owningGui.*.environment.mouseLeft == MouseButtonStates.JUST_NOW_PRESSED)
+            if (widget.*.owningGui) |gui|
+            {  
+                //if it's hovered and just clicked, flip state
+                if (widget.*.hoverState == WidgetHoverStates.JUST_NOW_HOVERED or 
+                    widget.*.hoverState == WidgetHoverStates.HOVERED)
                 {
-                    if (self.checked)
-                    {
-                        self.checked = false;
-                    }
-                    else
-                    {
-                        self.checked = true;
-                    }
                     
-                    if (self.onCheckStateChanged) |callback|
+                    if (gui.*.environment.mouseLeft == MouseButtonStates.JUST_NOW_PRESSED)
                     {
-                        callback(widget.owningGui.*.environment.wrapperApp,widget, self.checked);
+                        if (self.checked)
+                        {
+                            self.checked = false;
+                        }
+                        else
+                        {
+                            self.checked = true;
+                        }
+                        
+                        if (self.onCheckStateChanged) |callback|
+                        {
+                            callback(gui.*.environment.wrapperApp,widget, self.checked);
+                        }
                     }
                 }
+            }
+            else {
+                return error.NoOwningGuiSet;
             }
         }
 
@@ -182,18 +188,22 @@ pub fn CheckBox(comptime WrapperType: type) type
                 
             }
 
-            _ = sdl.c.SDL_SetRenderDrawColor(widget.owningGui.*.renderer, color.r, color.g, color.b, color.a);
-            _ = sdl.c.SDL_RenderFillRect(widget.owningGui.*.renderer, &rect);
+            if (widget.*.owningGui) |gui|
+            {
+            
+                _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, color.r, color.g, color.b, color.a);
+                _ = sdl.c.SDL_RenderFillRect(gui.*.renderer, &rect);
 
-            //fill in the center green if it's checked
-            if (self.checked)
-            {
-                _ = sdl.c.SDL_SetRenderDrawColor(widget.owningGui.*.renderer, 0, 200, 0, 255);
-            }
-            else 
-            {
-                _ = sdl.c.SDL_SetRenderDrawColor(widget.owningGui.*.renderer, 50, 50, 50, 255);
-            }
+                //fill in the center green if it's checked
+                if (self.checked)
+                {
+                    _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, 0, 200, 0, 255);
+                }
+                else 
+                {
+                    _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, 50, 50, 50, 255);
+                }
+
                 const border = 10;
 
                 const checked_rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
@@ -203,7 +213,11 @@ pub fn CheckBox(comptime WrapperType: type) type
                 .w = widget.size.x - (2*border),
                 };
 
-                _ = sdl.c.SDL_RenderFillRect(widget.owningGui.*.renderer, &checked_rect);
+                _ = sdl.c.SDL_RenderFillRect(gui.*.renderer, &checked_rect);
+            }
+            else {
+                return error.NoOwningGuiSet;
+            }
         }
     };
 }
@@ -236,49 +250,136 @@ pub fn Label(comptime WrapperType: type) type
             //defer sdl.c.TTF_CloseFont(font);
 
             //get the needed font from the list
-            const font: ?*fonts.Font = widget.*.owningGui.*.fonts.items[self.fontIndex-1];
-            if (font) |f|
+
+            if (widget.*.owningGui) |gui|
             {
-                _=f;
-            } 
-            else 
-            {
-                return error.OpenFontFailed;
+
+                const font: ?*fonts.Font = gui.*.fonts.items[self.fontIndex-1];
+                if (font) |f|
+                {
+                    _=f;
+                } 
+                else 
+                {
+                    return error.OpenFontFailed;
+                }
+
+                //var h: c_int = undefined;
+                //var w: c_int = undefined;
+
+                //_ = sdl.c.TTF_SizeText(font, widget.*.label, &w, &h);
+
+                const dims = try font.?.TextSize(widget.*.label);
+
+                const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
+                    .x = widget.transform.position.x, //
+                    .y =widget.transform.position.y,
+                    .h = dims.h,
+                    .w = dims.w,
+                };
+
+                const newColor: sdl.c.SDL_Color = .{.r = widget.*.color.r,.g = widget.*.color.g, .b = widget.*.color.b,.a = 255};
+
+                const c_string: [*c]const u8 = @ptrCast(widget.*.label);
+                const surface = sdl.c.TTF_RenderText_Blended(font.?.font, c_string, newColor);
+                defer sdl.c.SDL_FreeSurface(surface);
+                if (surface == null)
+                {
+                    return error.CreateSurfaceFailed;
+                }
+
+                const texture = sdl.c.SDL_CreateTextureFromSurface(gui.*.renderer, surface);
+                defer sdl.c.SDL_DestroyTexture(texture);
+                if (texture == null)
+                {
+                    return error.CreateTextureFailed;
+                } 
+
+                _ = sdl.c.SDL_RenderCopy(gui.*.renderer, texture, null, &rect);
             }
-
-            //var h: c_int = undefined;
-            //var w: c_int = undefined;
-
-            //_ = sdl.c.TTF_SizeText(font, widget.*.label, &w, &h);
-
-            const dims = try font.?.TextSize(widget.*.label);
-
-            const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
-                .x = widget.transform.position.x, //
-                .y =widget.transform.position.y,
-                .h = dims.h,
-                .w = dims.w,
-            };
-
-            const newColor: sdl.c.SDL_Color = .{.r = widget.*.color.r,.g = widget.*.color.g, .b =widget.*.color.b,.a = 255};
-
-            const c_string: [*c]const u8 = @ptrCast(widget.*.label);
-            const surface = sdl.c.TTF_RenderText_Blended(font.?.font, c_string, newColor);
-            defer sdl.c.SDL_FreeSurface(surface);
-            if (surface == null)
-            {
-                return error.CreateSurfaceFailed;
+            else {
+                return error.NoOwningGuiSet;
             }
-
-            const texture = sdl.c.SDL_CreateTextureFromSurface(widget.*.owningGui.*.renderer, surface);
-            defer sdl.c.SDL_DestroyTexture(texture);
-            if (texture == null)
-            {
-                return error.CreateTextureFailed;
-            } 
-
-            _ = sdl.c.SDL_RenderCopy(widget.*.owningGui.*.renderer, texture, null, &rect);
         }
+    };
+}
+
+pub fn Container(comptime WrapperType: type) type
+{
+    return struct {
+        allocator: std.mem.Allocator,
+        childWidgets: ?std.ArrayList(*Widget(WrapperType)) = null,
+        arena: ?std.heap.ArenaAllocator = null,
+        showBorder: bool = false,
+
+        pub fn init(self: *Container(WrapperType), widget: *Widget(WrapperType), allocator: std.mem.Allocator) void
+        {
+            _ = widget;
+            self.allocator = allocator;
+            self.arena = std.heap.ArenaAllocator.init(allocator);
+            self.childWidgets = std.ArrayList(*Widget(WrapperType)).init(allocator);
+        }
+
+        pub fn addChildWidget(self: *Container(WrapperType), widget: *Widget(WrapperType), newWidget: *Widget(WrapperType)) !*Widget(WrapperType)
+        {
+            //if children widgets have been initialized, add a new
+            if (self.childWidgets) |children|
+            {
+                
+                const allocator = self.arena.allocator();
+                const addedWidget = try allocator.create(Widget(WrapperType));
+                addedWidget.* = newWidget;
+                addedWidget.*.parent = self;
+
+                if (widget.*.owningGui) |gui|
+                {
+                    addedWidget.*.owningGui = gui;
+                }
+
+                try children.append(newWidget);
+            }
+        }
+
+        pub fn update(self: *Container(WrapperType), widget: *Widget(WrapperType)) !void
+        {
+            _ = widget;
+            if (self.childWidgets) |children|
+            {
+                for(children.items) |child|
+                {
+                    try child.update();
+                    return;
+                }
+            }
+            return error.ChildrenListNotCreated;
+        }
+
+        pub fn draw(self: *Container(WrapperType), widget: *Widget(WrapperType)) !void 
+        {
+            _ = widget;
+            if (self.childWidgets) |children|
+            {
+                for(children.items) |child|
+                {
+                    try child.draw();
+                    return;
+                }
+            }
+            return error.ChildrenListNotCreated;
+        }
+
+        pub fn shutdown(self: *Container(WrapperType)) void 
+        {
+            if (self.childWidgets) |children|
+            {
+                for(children) |child|
+                {
+                    try child.shutdown();
+                }
+            }
+
+        }
+
     };
 }
 
@@ -291,12 +392,24 @@ pub fn WidgetType(comptime WrapperType: type) type
         CheckBox: CheckBox(WrapperType),
         Slider: Slider,
         Label: Label(WrapperType),
+        Container: Container(WrapperType),
 
-        pub fn update(self: *SelfType, widget: *Widget(WrapperType)) void
+        //run these functions only on widget types that need them
+
+        pub fn init(self: *SelfType, widget: *Widget(WrapperType), allocator: std.mem.Allocator) void
+        {
+            switch(self.*){
+                .Container => |*container| container.init(widget, allocator),
+                else => {},
+            }
+        }
+
+        pub fn update(self: *SelfType, widget: *Widget(WrapperType)) !void
         {
             switch(self.*) {
-                .Button => |*button| button.update(widget),
-                .CheckBox => |*checkbox| checkbox.update(widget),
+                //.Button => |*button| try button.update(widget),
+                .CheckBox => |*checkbox| try checkbox.update(widget),
+                .Container => |*container| try container.update(widget),
                 else => {},
             }
         }
@@ -306,8 +419,15 @@ pub fn WidgetType(comptime WrapperType: type) type
                 .Button => |*button| try button.draw(widget),
                 .CheckBox => |*checkBox| try checkBox.draw(widget),
                 .Label => |*label| try label.draw(widget),
+                .Container => |*container| try container.draw(widget),
                 //.Slider => |*slider| slider.draw(self, widget),
                 else => {},
+            }
+        }
+
+        pub fn shutdown(self: *SelfType) void {
+            switch (self.*) {
+                .Container => |*container| container.shutdown(),
             }
         }
     };
@@ -324,7 +444,7 @@ pub fn Widget(comptime WrapperType: type) type
         size: Vec2(i32),
         color: sdl.types.RGBAColor,
         parent: *Widget(WrapperType) = undefined,
-        owningGui: *guiApp.GuiApp(WrapperType) = undefined,
+        owningGui: ?*guiApp.GuiApp(WrapperType) = null,
         hoverState: WidgetHoverStates = WidgetHoverStates.UNHOVERED,
         isMouseDown: bool = false,
 
@@ -335,101 +455,118 @@ pub fn Widget(comptime WrapperType: type) type
 
         widgetType: WidgetType(WrapperType),
 
-        pub fn update(self: *Widget(WrapperType)) void {
-            const mousePos = self.owningGui.*.environment.mouseLocation;
-            const widgetLocation = self.transform.position;
-
-            //are we currently hovered?
-            const latestHoverState = (mousePos.x >= widgetLocation.x) and
-                                (mousePos.x <= widgetLocation.x + self.size.x) and
-                                (mousePos.y >= widgetLocation.y) and
-                                (mousePos.y <= widgetLocation.y + self.size.y);
-
-            hoverStateCheck: switch(self.hoverState)
-            {
-                WidgetHoverStates.UNHOVERED=>
-                {
-                    
-                    if (true == latestHoverState) //we were unhovered, and we just stared
-                    {
-                        self.hoverState = WidgetHoverStates.HOVERED;
-                        continue: hoverStateCheck WidgetHoverStates.JUST_NOW_HOVERED;
-                    }
-                    else 
-                    {
-                        //TODO do something while remaining unhovered?
-                    }
-                },
-                WidgetHoverStates.JUST_NOW_HOVERED=>
-                {
-                    if (self.onHovered) |callback|
-                    {
-                        callback(self.owningGui.*.environment.wrapperApp,self);
-                    }
-                    continue: hoverStateCheck WidgetHoverStates.HOVERED;
-                },
-                WidgetHoverStates.HOVERED=>
-                {
-                    if (false == latestHoverState) //we were hovered, now we're not
-                    {
-                        self.hoverState = WidgetHoverStates.UNHOVERED;
-                        continue: hoverStateCheck WidgetHoverStates.JUST_NOW_UNHOVERED;
-                    }
-                    else 
-                    {
-                        //TODO do something while remaining hovered
-                    }
-                },
-                WidgetHoverStates.JUST_NOW_UNHOVERED=>
-                {
-                    if (self.onUnhovered) |callback|
-                    {
-                        callback(self.owningGui.*.environment.wrapperApp,self);
-                    }
-                    continue: hoverStateCheck WidgetHoverStates.UNHOVERED;
-                }
-            }
-
-            //don't even try to run onClick if you're not hovered. Makes no sense.
-            if (true == latestHoverState)  
-            {
-                mouseStateCheck: switch(self.owningGui.*.environment.mouseLeft)
-                {
-                    MouseButtonStates.JUST_NOW_PRESSED=>
-                    {
-                        if (self.onMouseDown) |callback|
-                        {
-                            callback(self.owningGui.*.environment.wrapperApp,self);
-                        }
-                        self.isMouseDown = true;
-                        continue :mouseStateCheck MouseButtonStates.PRESSED;
-                    },
-                    MouseButtonStates.PRESSED=>
-                    {
-                        //TODO mouse being held
-                    },
-                    MouseButtonStates.JUST_NOW_RELEASED=>
-                    {
-                        if (self.onMouseUp) |callback|
-                        {
-                            callback(self.owningGui.*.environment.wrapperApp,self);
-                        }
-                        self.isMouseDown = false;
-                        continue :mouseStateCheck MouseButtonStates.RELEASED;
-                    },
-                    MouseButtonStates.RELEASED=>
-                    {
-                        //TODO while mouse not pressed.
-                        //probably do nothing here
-                    }
-                }
-            }
-
-            self.widgetType.update(self);
+        pub fn init(self: *Widget(WrapperType), allocator: std.mem.Allocator) void
+        {
+            self.widgetType.init(self, allocator);
         }
 
-        pub fn draw(self: *Widget(WrapperType)) !void {
+        pub fn update(self: *Widget(WrapperType)) anyerror!void {
+
+            if (self.owningGui) |gui|
+            {
+   
+                const mousePos = gui.*.environment.mouseLocation;
+                const widgetLocation = self.transform.position;
+
+                //are we currently hovered?
+                const latestHoverState = (mousePos.x >= widgetLocation.x) and
+                                    (mousePos.x <= widgetLocation.x + self.size.x) and
+                                    (mousePos.y >= widgetLocation.y) and
+                                    (mousePos.y <= widgetLocation.y + self.size.y);
+
+                hoverStateCheck: switch(self.hoverState)
+                {
+                    WidgetHoverStates.UNHOVERED=>
+                    {
+                        
+                        if (true == latestHoverState) //we were unhovered, and we just stared
+                        {
+                            self.hoverState = WidgetHoverStates.HOVERED;
+                            continue: hoverStateCheck WidgetHoverStates.JUST_NOW_HOVERED;
+                        }
+                        else 
+                        {
+                            //TODO do something while remaining unhovered?
+                        }
+                    },
+                    WidgetHoverStates.JUST_NOW_HOVERED=>
+                    {
+                        if (self.onHovered) |callback|
+                        {
+                            callback(gui.*.environment.wrapperApp,self);
+                        }
+                        continue: hoverStateCheck WidgetHoverStates.HOVERED;
+                    },
+                    WidgetHoverStates.HOVERED=>
+                    {
+                        if (false == latestHoverState) //we were hovered, now we're not
+                        {
+                            self.hoverState = WidgetHoverStates.UNHOVERED;
+                            continue: hoverStateCheck WidgetHoverStates.JUST_NOW_UNHOVERED;
+                        }
+                        else 
+                        {
+                            //TODO do something while remaining hovered
+                        }
+                    },
+                    WidgetHoverStates.JUST_NOW_UNHOVERED=>
+                    {
+                        if (self.onUnhovered) |callback|
+                        {
+                            callback(gui.*.environment.wrapperApp,self);
+                        }
+                        continue: hoverStateCheck WidgetHoverStates.UNHOVERED;
+                    }
+                }
+
+                //don't even try to run onClick if you're not hovered. Makes no sense.
+                if (true == latestHoverState)  
+                {
+                    mouseStateCheck: switch(gui.*.environment.mouseLeft)
+                    {
+                        MouseButtonStates.JUST_NOW_PRESSED=>
+                        {
+                            if (self.onMouseDown) |callback|
+                            {
+                                callback(gui.*.environment.wrapperApp,self);
+                            }
+                            self.isMouseDown = true;
+                            continue :mouseStateCheck MouseButtonStates.PRESSED;
+                        },
+                        MouseButtonStates.PRESSED=>
+                        {
+                            //TODO mouse being held
+                        },
+                        MouseButtonStates.JUST_NOW_RELEASED=>
+                        {
+                            if (self.onMouseUp) |callback|
+                            {
+                                callback(gui.*.environment.wrapperApp,self);
+                            }
+                            self.isMouseDown = false;
+                            continue :mouseStateCheck MouseButtonStates.RELEASED;
+                        },
+                        MouseButtonStates.RELEASED=>
+                        {
+                            //TODO while mouse not pressed.
+                            //probably do nothing here
+                        }
+                    }
+                }
+
+                try self.widgetType.update(self);
+            }
+            else {
+                return error.NoOwningGuiSet;
+            }
+        }
+
+        pub fn draw(self: *Widget(WrapperType)) anyerror!void {
             try self.widgetType.draw(self);
+        }
+
+        pub fn shutown(self: *Widget(WrapperType)) void {
+            try self.widgetType.shutdown();
         }
     };
 }
