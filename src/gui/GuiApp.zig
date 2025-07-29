@@ -54,7 +54,7 @@ pub fn GuiApp(comptime WrapperType: type) type {
             //create the root container widget to house all other widgets
             self.rootContainerWidget = try options.allocator.create(widgets.Widget(WrapperType));
             self.rootContainerWidget.?.* = .{.transform = .{.position = .{ .x = 0, .y = 0 }},
-                                            .color = .{.r = 0, .g = 0 , .b=0,.a=0},
+                                            .color = self.options.backgroundColor,
                                             .label = "not set",
                                             .widgetType = widgets.WidgetType(WrapperType){ .Container = .{}},
                                             .size = .{.x = options.startingWindowSize.x, .y = options.startingWindowSize.y}};
