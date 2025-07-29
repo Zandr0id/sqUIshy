@@ -448,7 +448,7 @@ pub fn WidgetType(comptime WrapperType: type) type
 
         pub fn init(self: *SelfType, widget: *Widget(WrapperType), allocator: std.mem.Allocator) void
         {
-            switch(self.*){
+            switch(self.*) {
                 .Container => |*container| container.init(widget, allocator),
                 else => {},
             }
@@ -464,7 +464,8 @@ pub fn WidgetType(comptime WrapperType: type) type
             }
         }
 
-        pub fn draw(self: *SelfType, widget: *Widget(WrapperType)) !void {
+        pub fn draw(self: *SelfType, widget: *Widget(WrapperType)) !void 
+        {
             switch (self.*) {
                 .Button => |*button| try button.draw(widget),
                 .CheckBox => |*checkBox| try checkBox.draw(widget),
@@ -475,10 +476,19 @@ pub fn WidgetType(comptime WrapperType: type) type
             }
         }
 
-        pub fn shutdown(self: *SelfType) void {
+        pub fn shutdown(self: *SelfType) void 
+        {
             switch (self.*) {
                 .Container => |*container| container.shutdown(),
                 else => {},
+            }
+        }
+
+        pub fn addChildWidget(self: *SelfType ,widget: *Widget(WrapperType), newWidget: Widget(WrapperType)) ?*Widget(WrapperType)
+        {
+            switch(self.*) { //TODO Do something smarter with the possible error here
+                .Container => |*container| return container.addChildWidget(widget, newWidget) catch {return null;},
+                else => {return null;},
             }
         }
     };
@@ -620,6 +630,11 @@ pub fn Widget(comptime WrapperType: type) type
 
         pub fn shutdown(self: *Widget(WrapperType)) void {
             self.widgetType.shutdown();
+        }
+
+        pub fn addChildWidget(self: *Widget(WrapperType), newWidget: Widget(WrapperType)) ?*Widget(WrapperType)
+        {
+            return self.widgetType.addChildWidget(self, newWidget);
         }
 
         //work up the parent widget chain, summing all cordinates to get to a global cordinates on the whole window
