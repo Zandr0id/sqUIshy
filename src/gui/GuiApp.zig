@@ -120,11 +120,6 @@ pub fn GuiApp(comptime WrapperType: type) type {
                 return error.CantAddWidgetsWhileRunning;
             }
             
-            //const allocator = self.arena.allocator();
-           // const newWidget = try allocator.create(widgets.Widget(WrapperType));
-           // newWidget.* = widget;
-           // newWidget.*.owningGui = self;
-
             if (self.rootContainerWidget) |root|
             {
                 return try root.*.widgetType.Container.addChildWidget(root, widget);

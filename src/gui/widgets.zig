@@ -62,9 +62,11 @@ pub fn Button(comptime WrapperType: type) type{
         pub fn draw(self: *Button(WrapperType), widget: *Widget(WrapperType)) !void {
             _ = self;
 
+
+            const transfromedCoords = widget.*.relativeToGlobalCoordinates();
             const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
-                .x = widget.transform.position.x, //
-                .y =widget.transform.position.y,
+                .x = transfromedCoords.x, //
+                .y = transfromedCoords.y,
                 .h = widget.size.y,
                 .w = widget.size.x,
             };
@@ -170,9 +172,10 @@ pub fn CheckBox(comptime WrapperType: type) type
 
         pub fn draw(self: *CheckBox(WrapperType), widget: *Widget(WrapperType)) !void {
 
+            const transformedCoords = widget.*.relativeToGlobalCoordinates();
             const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
-                .x = widget.transform.position.x, //
-                .y =widget.transform.position.y,
+                .x = transformedCoords.x,
+                .y = transformedCoords.y,
                 .h = widget.size.y,
                 .w = widget.size.x,
             };
@@ -207,8 +210,8 @@ pub fn CheckBox(comptime WrapperType: type) type
                 const border = 10;
 
                 const checked_rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
-                .x = widget.transform.position.x + border, //
-                .y =widget.transform.position.y + border,
+                .x = transformedCoords.x + border, //
+                .y = transformedCoords.y + border,
                 .h = widget.size.y - (2*border),
                 .w = widget.size.x - (2*border),
                 };
@@ -271,9 +274,11 @@ pub fn Label(comptime WrapperType: type) type
 
                 const dims = try font.?.TextSize(widget.*.label);
 
+                const transformedCoords = widget.*.relativeToGlobalCoordinates();
+
                 const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
-                    .x = widget.transform.position.x, //
-                    .y =widget.transform.position.y,
+                    .x = transformedCoords.x, //
+                    .y = transformedCoords.y,
                     .h = dims.h,
                     .w = dims.w,
                 };
@@ -339,6 +344,10 @@ pub fn Container(comptime WrapperType: type) type
                     }
                 }
 
+                if (self.allocator) |a|
+                {
+                    addedWidget.init(a);
+                }
                 try children.append(addedWidget);
                 return addedWidget;
             }
@@ -364,7 +373,29 @@ pub fn Container(comptime WrapperType: type) type
 
         pub fn draw(self: *Container(WrapperType), widget: *Widget(WrapperType)) !void 
         {
-            _ = widget;
+            
+            if (widget.*.owningGui) |gui|
+            {
+
+                var rect: sdl.c.SDL_Rect = .{};
+                const transformedCoords = widget.*.relativeToGlobalCoordinates();
+                
+                rect = .{.x = @intCast(transformedCoords.x), 
+                        .y = @intCast(transformedCoords.y) ,
+                        .h = widget.size.y,
+                        .w = widget.size.x,
+                        };
+       
+               // const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
+              //  .x = widget.transform.position.x, 
+               // .y = widget.transform.position.y ,
+              //  .h = widget.size.y,
+              //  .w = widget.size.x,
+               // };
+                _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, widget.*.color.r, widget.*.color.g, widget.*.color.b, 255);
+                _ = sdl.c.SDL_RenderFillRect(gui.*.renderer, &rect);
+            }
+
             if (self.childWidgets) |children|
             {
                 for(children.items) |child|
@@ -486,8 +517,8 @@ pub fn Widget(comptime WrapperType: type) type
             {
 
                 const mousePos = gui.*.environment.mouseLocation;
-                const widgetLocation = self.transform.position;
-
+                //const widgetLocation = self.transform.position;
+                const widgetLocation = relativeToGlobalCoordinates(self);
                 //are we currently hovered?
                 const latestHoverState = (mousePos.x >= widgetLocation.x) and
                                     (mousePos.x <= widgetLocation.x +| self.size.x) and
@@ -589,6 +620,24 @@ pub fn Widget(comptime WrapperType: type) type
 
         pub fn shutdown(self: *Widget(WrapperType)) void {
             self.widgetType.shutdown();
+        }
+
+        //work up the parent widget chain, summing all cordinates to get to a global cordinates on the whole window
+        //top left being 0,0
+        pub fn relativeToGlobalCoordinates(self: *Widget(WrapperType)) Vec2(i32)
+        {
+
+            var ret: Vec2(i32) = .{.x = self.transform.position.x, .y = self.transform.position.y};
+            var parent = self.parent;
+
+            while (parent) |p| : (parent = p.parent)
+            {
+                //ret = .{.x =  +| p.transform.position.x, .y = .y +| p.transform.position.y};
+                ret.x +|= p.transform.position.x;
+                ret.y +|= p.transform.position.y;
+            }
+
+            return ret;
         }
     };
 }

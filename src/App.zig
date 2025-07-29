@@ -8,11 +8,15 @@ pub const App = struct {
 
     gui: *gui.GuiApp(App) = undefined,
 
-    button_1: *AppWidget = undefined,
-    button_2: *AppWidget = undefined,
+    left_panel: *AppWidget = undefined,
+    right_panel: *AppWidget = undefined,
+
+    green_button: *AppWidget = undefined,
+    red_button: *AppWidget = undefined,
     label_1: *AppWidget = undefined,
-    label_2: *AppWidget = undefined,
+
     checkbox: *AppWidget = undefined,
+    label_2: *AppWidget = undefined,
 
     pub fn OnClick1(self: *App, widget: *AppWidget) void
     {
@@ -75,27 +79,47 @@ pub const App = struct {
         if (rootWidget) |root|
         {
 
+            var container_template: AppWidget = .{
+                .label = "LeftPanel",
+                .widgetType = gui.widgets.WidgetType(App){.Container = .{.allocator = allocator}},
+                .size = .{.x = 480,.y = 780},
+                .color = .{.r = 50, .g = 100, .b=100, .a = 255},
+                .transform = .{.position = .{.x = 10, .y = 10}}
+            };
+
+            self.left_panel = try root.*.widgetType.Container.addChildWidget(rootWidget, container_template);
+
+                container_template = .{
+                .label = "RightPanel",
+                .widgetType = gui.widgets.WidgetType(App){.Container = .{.allocator = allocator}},
+                .size = .{.x = 480,.y = 780},
+                .color = .{.r = 100, .g = 50, .b=100, .a = 255},
+                .transform = .{.position = .{.x = 510, .y = 10}}
+            };
+
+            self.right_panel = try root.*.widgetType.Container.addChildWidget(rootWidget, container_template);
+
             var button_template: AppWidget = .{
                 .label = "Green Button",
                 .widgetType = gui.widgets.WidgetType(App){ .Button = gui.widgets.Button(App){} }, //
                 .size = .{ .x = 200, .y = 100},
                 .color = .{.r = 0, .g = 200, .b = 0, .a = 255},
-                .transform = gui.widgets.Transform{ .position = .{ .x = 0, .y = 0 } },
+                .transform = gui.widgets.Transform{ .position = .{ .x = 10, .y = 10 } },
                 .onMouseUp = OnClick1
             };
 
-            self.button_1 = try root.*.widgetType.Container.addChildWidget(rootWidget,button_template);
+            self.green_button = try root.*.widgetType.Container.addChildWidget(self.left_panel,button_template);
 
             button_template = .{
                 .label = "Red Button",
                 .widgetType = gui.widgets.WidgetType(App){ .Button = gui.widgets.Button(App){} }, //
                 .size = .{ .x = 200, .y = 100},
                 .color = .{.r = 200, .g = 0, .b = 0, .a = 255},
-                .transform = gui.widgets.Transform{ .position = .{ .x = 220, .y = 0 } },
+                .transform = gui.widgets.Transform{ .position = .{ .x = 10, .y = 10 } },
                 .onMouseUp = OnClick2
             };
 
-            self.button_2 = try root.*.widgetType.Container.addChildWidget(rootWidget,button_template);
+            self.red_button = try root.*.widgetType.Container.addChildWidget(self.right_panel,button_template);
 
             var label_template: AppWidget = .{
                 .label = "not set",
@@ -105,17 +129,17 @@ pub const App = struct {
                 .transform = gui.widgets.Transform{ .position = .{ .x = 0, .y = 200 } },
             };        
 
-            self.label_1 = try root.*.widgetType.Container.addChildWidget(rootWidget,label_template);
+            self.label_1 = try root.*.widgetType.Container.addChildWidget(self.left_panel,label_template);
 
             label_template = .{
                 .label = "Not checked",
                 .widgetType = gui.widgets.WidgetType(App){ .Label = gui.widgets.Label(App){.fontIndex = smallFont}},
                 .size = .{.x = 200, .y = 50},
                 .color = .{.r = 200, .g = 200, .b = 200, .a = 255},
-                .transform = gui.widgets.Transform{ .position = .{ .x = 400, .y = 200 } },
+                .transform = gui.widgets.Transform{ .position = .{ .x = 0, .y = 200 } },
             };        
 
-            self.label_2 = try root.*.widgetType.Container.addChildWidget(rootWidget,label_template);
+            self.label_2 = try root.*.widgetType.Container.addChildWidget(self.right_panel,label_template);
 
             const checkbox_template: AppWidget = .{
                 .label = "check",
@@ -125,11 +149,11 @@ pub const App = struct {
                         },
                 .size = .{.x = 50, .y = 50},
                 .color = .{.r = 200, .g = 200, .b = 200, .a = 255},
-                .transform = gui.widgets.Transform{ .position = .{ .x = 350, .y = 200 } },
+                .transform = gui.widgets.Transform{ .position = .{ .x = 10, .y = 120 } },
             
             };
 
-            self.checkbox = try root.*.widgetType.Container.addChildWidget(rootWidget,checkbox_template);
+            self.checkbox = try root.*.widgetType.Container.addChildWidget(self.left_panel,checkbox_template);
 
             //run the app until it quits
             try self.gui.*.Run();
