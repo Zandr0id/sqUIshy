@@ -1,5 +1,7 @@
 # sqUIshy
 
+![The mascot](./media/sqUIshy.svg)
+
 This is a GUI toolkit made with Zig and SDL2.
 
 I'm hoping to make this as a textbook example usage of Zig to build a large system
