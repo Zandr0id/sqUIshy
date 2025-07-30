@@ -10,6 +10,7 @@ pub const App = struct {
 
     left_panel: ?*AppWidget = null,
     right_panel: ?*AppWidget = null,
+    small_panel: ?*AppWidget = null,
 
     green_button: ?*AppWidget = null,
     red_button: ?*AppWidget = null,
@@ -89,7 +90,7 @@ pub const App = struct {
 
             self.left_panel = root.*.addChildWidget(container_template);
 
-                container_template = .{
+            container_template = .{
                 .label = "RightPanel",
                 .widgetType = gui.widgets.WidgetType(App){.Container = .{.allocator = allocator}},
                 .size = .{.x = 480,.y = 780},
@@ -98,6 +99,18 @@ pub const App = struct {
             };
 
             self.right_panel = root.*.addChildWidget(container_template);
+
+            container_template = .{
+                .label = "SmallPanel",
+                .widgetType = gui.widgets.WidgetType(App){.Container = .{.allocator = allocator}},
+                .size = .{.x = 460,.y = 340},
+                .color = .{.r = 150, .g = 150, .b=100, .a = 255},
+                .transform = .{.position = .{.x = 10, .y = 350}}
+            };
+
+            self.small_panel = self.right_panel.?.*.addChildWidget(container_template);
+
+            
 
             var button_template: AppWidget = .{
                 .label = "Green Button",
@@ -111,6 +124,7 @@ pub const App = struct {
             //self.green_button = try root.*.widgetType.Container.addChildWidget(self.left_panel,button_template);
             //self.green_button = self.left_panel.?.*.addChildWidget(button_template);
             self.green_button = self.left_panel.?.*.addChildWidget(button_template);
+            _ = self.small_panel.?.*.addChildWidget(button_template);
 
             button_template = .{
                 .label = "Red Button",
