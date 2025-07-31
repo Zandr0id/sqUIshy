@@ -17,31 +17,17 @@ const WidgetErrors = error{
     NoOwningGuiSet,
 };
 
-pub const WidgetHoverStates = enum(u8){
-    UNHOVERED,
-    JUST_NOW_UNHOVERED,
-    JUST_NOW_HOVERED,
-    HOVERED
-};
+pub const WidgetHoverStates = enum(u8) { UNHOVERED, JUST_NOW_UNHOVERED, JUST_NOW_HOVERED, HOVERED };
 
-pub const MouseButtonStates = enum(u8)
-{
-    RELEASED,
-    JUST_NOW_RELEASED,
-    JUST_NOW_PRESSED,
-    PRESSED
-};
-
+pub const MouseButtonStates = enum(u8) { RELEASED, JUST_NOW_RELEASED, JUST_NOW_PRESSED, PRESSED };
 
 pub fn Vec2(comptime T: type) type {
-    return struct{
-
+    return struct {
         x: T = undefined,
         y: T = undefined,
 
         pub fn Create(pos_x: T, pos_y: T) @This() {
-            return 
-            .{
+            return .{
                 .x = pos_x,
                 .y = pos_y,
             };
@@ -55,14 +41,11 @@ pub const Transform = struct {
     scale: Vec2(f32) = .{ .x = 1.0, .y = 1.0 }, //x,y
 };
 
-pub fn Button(comptime WrapperType: type) type{
-    
+pub fn Button(comptime WrapperType: type) type {
     return struct {
+        fontIndex: ?usize = null,
 
         pub fn draw(self: *Button(WrapperType), widget: *Widget(WrapperType)) !void {
-            _ = self;
-
-
             const transfromedCoords = widget.*.relativeToGlobalCoordinates();
             const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
                 .x = transfromedCoords.x, //
@@ -73,105 +56,83 @@ pub fn Button(comptime WrapperType: type) type{
 
             var color: sdl.types.RGBAColor = widget.color;
 
-            if (widget.*.hoverState == WidgetHoverStates.HOVERED)
-            {
-                if (widget.*.isMouseDown)
-                {
+            if (widget.*.hoverState == WidgetHoverStates.HOVERED) {
+                if (widget.*.isMouseDown) {
                     color.r = 200;
                     color.g = 100;
                     color.b = 100;
-                }
-                else
-                {
+                } else {
                     //lighten the color just a bit
                     color.r +|= 30;
                     color.g +|= 100;
                     color.b +|= 30;
                 }
             }
-            
-            //TODO: Open fonts somewhere once and make them accessable to all widgets
-            //Perhaps up at the GuiApp level
 
-            if (widget.*.owningGui) |gui|
-            {
-
+            if (widget.*.owningGui) |gui| {
                 _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, color.r, color.g, color.b, color.a);
                 _ = sdl.c.SDL_RenderFillRect(gui.*.renderer, &rect);
-                const font = sdl.c.TTF_OpenFont("/usr/share/fonts/truetype/ubuntu/Ubuntu-C.ttf", 64);
-                defer sdl.c.TTF_CloseFont(font);
-                if (font == null)
-                {
-                    return error.OpenFontFailed;
-                } 
-            
-                const newColor: sdl.c.SDL_Color = .{.r = 0,.g = 0, .b =0,.a = 255};
 
+                const fontIndex: usize = self.fontIndex orelse gui.*.fonts.items.len - 1;
+                const font: ?*fonts.Font = gui.*.fonts.items[fontIndex];
+                if (font) |f| {
+                    _ = f;
+                } else {
+                    return error.OpenFontFailed;
+                }
+
+                const newColor: sdl.c.SDL_Color = .{ .r = 0, .g = 0, .b = 0, .a = 255 };
                 const c_string: [*c]const u8 = @ptrCast(widget.*.label);
 
-                const surface = sdl.c.TTF_RenderText_Blended(font, c_string, newColor);
+                const surface = sdl.c.TTF_RenderText_Blended(font.?.font, c_string, newColor);
                 defer sdl.c.SDL_FreeSurface(surface);
-                if (surface == null)
-                {
+                if (surface == null) {
                     return error.CreateSurfaceFailed;
                 }
 
                 const texture = sdl.c.SDL_CreateTextureFromSurface(gui.*.renderer, surface);
                 defer sdl.c.SDL_DestroyTexture(texture);
-                if (texture == null)
-                {
+                if (texture == null) {
                     return error.CreateTextureFailed;
-                } 
+                }
                 _ = sdl.c.SDL_RenderCopy(gui.*.renderer, texture, null, &rect);
-            }
-            else {
+            } else {
                 return error.NoOwningGuiSet;
             }
         }
     };
 }
 
-pub fn CheckBox(comptime WrapperType: type) type
-{
+pub fn CheckBox(comptime WrapperType: type) type {
     return struct {
         checked: bool = false,
 
-        onCheckStateChanged: ?*const fn(outer:*WrapperType, widget: *Widget(WrapperType), newState: bool) void = null,
+        onCheckStateChanged: ?*const fn (outer: *WrapperType, widget: *Widget(WrapperType), newState: bool) void = null,
 
-        pub fn update(self: *CheckBox(WrapperType), widget: *Widget(WrapperType)) !void{
-            
-            if (widget.*.owningGui) |gui|
-            {  
+        pub fn update(self: *CheckBox(WrapperType), widget: *Widget(WrapperType)) !void {
+            if (widget.*.owningGui) |gui| {
                 //if it's hovered and just clicked, flip state
-                if (widget.*.hoverState == WidgetHoverStates.JUST_NOW_HOVERED or 
+                if (widget.*.hoverState == WidgetHoverStates.JUST_NOW_HOVERED or
                     widget.*.hoverState == WidgetHoverStates.HOVERED)
                 {
-                    
-                    if (gui.*.environment.mouseLeft == MouseButtonStates.JUST_NOW_PRESSED)
-                    {
-                        if (self.checked)
-                        {
+                    if (gui.*.environment.mouseLeft == MouseButtonStates.JUST_NOW_PRESSED) {
+                        if (self.checked) {
                             self.checked = false;
-                        }
-                        else
-                        {
+                        } else {
                             self.checked = true;
                         }
-                        
-                        if (self.onCheckStateChanged) |callback|
-                        {
-                            callback(gui.*.environment.wrapperApp,widget, self.checked);
+
+                        if (self.onCheckStateChanged) |callback| {
+                            callback(gui.*.environment.wrapperApp, widget, self.checked);
                         }
                     }
                 }
-            }
-            else {
+            } else {
                 return error.NoOwningGuiSet;
             }
         }
 
         pub fn draw(self: *CheckBox(WrapperType), widget: *Widget(WrapperType)) !void {
-
             const transformedCoords = widget.*.relativeToGlobalCoordinates();
             const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
                 .x = transformedCoords.x,
@@ -182,43 +143,35 @@ pub fn CheckBox(comptime WrapperType: type) type
 
             var color: sdl.types.RGBAColor = widget.color;
 
-            if (widget.*.hoverState == WidgetHoverStates.HOVERED)
-            {
+            if (widget.*.hoverState == WidgetHoverStates.HOVERED) {
                 //lighten the color just a bit
                 color.r +|= 30;
                 color.g +|= 30;
                 color.b +|= 30;
-                
             }
 
-            if (widget.*.owningGui) |gui|
-            {
-            
+            if (widget.*.owningGui) |gui| {
                 _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, color.r, color.g, color.b, color.a);
                 _ = sdl.c.SDL_RenderFillRect(gui.*.renderer, &rect);
 
                 //fill in the center green if it's checked
-                if (self.checked)
-                {
+                if (self.checked) {
                     _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, 0, 200, 0, 255);
-                }
-                else 
-                {
+                } else {
                     _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, 50, 50, 50, 255);
                 }
 
                 const border = 10;
 
                 const checked_rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
-                .x = transformedCoords.x + border, //
-                .y = transformedCoords.y + border,
-                .h = widget.size.y - (2*border),
-                .w = widget.size.x - (2*border),
+                    .x = transformedCoords.x + border, //
+                    .y = transformedCoords.y + border,
+                    .h = widget.size.y - (2 * border),
+                    .w = widget.size.x - (2 * border),
                 };
 
                 _ = sdl.c.SDL_RenderFillRect(gui.*.renderer, &checked_rect);
-            }
-            else {
+            } else {
                 return error.NoOwningGuiSet;
             }
         }
@@ -230,22 +183,19 @@ pub const Slider = struct {
     maxValue: u32 = 100,
     currentValue: u32 = 0,
 
-    pub fn draw(self: *Slider, widget: *Widget) !void 
-    {
+    pub fn draw(self: *Slider, widget: *Widget) !void {
         _ = self;
         _ = widget;
     }
 };
 
-pub fn Label(comptime WrapperType: type) type
-{
+pub fn Label(comptime WrapperType: type) type {
     return struct {
         fontIndex: usize,
         value: []const u8 = "",
 
-        pub fn draw(self: *Label(WrapperType), widget: *Widget(WrapperType)) !void
-        {
-   
+        pub fn draw(self: *Label(WrapperType), widget: *Widget(WrapperType)) !void {
+
             //TODO: Open fonts somewhere once and make them accessable to all widgets
             //Perhaps up at the GuiApp level
 
@@ -254,16 +204,11 @@ pub fn Label(comptime WrapperType: type) type
 
             //get the needed font from the list
 
-            if (widget.*.owningGui) |gui|
-            {
-
-                const font: ?*fonts.Font = gui.*.fonts.items[self.fontIndex-1];
-                if (font) |f|
-                {
-                    _=f;
-                } 
-                else 
-                {
+            if (widget.*.owningGui) |gui| {
+                const font: ?*fonts.Font = gui.*.fonts.items[self.fontIndex - 1];
+                if (font) |f| {
+                    _ = f;
+                } else {
                     return error.OpenFontFailed;
                 }
 
@@ -283,42 +228,37 @@ pub fn Label(comptime WrapperType: type) type
                     .w = dims.w,
                 };
 
-                const newColor: sdl.c.SDL_Color = .{.r = widget.*.color.r,.g = widget.*.color.g, .b = widget.*.color.b,.a = 255};
+                const newColor: sdl.c.SDL_Color = .{ .r = widget.*.color.r, .g = widget.*.color.g, .b = widget.*.color.b, .a = 255 };
 
                 const c_string: [*c]const u8 = @ptrCast(widget.*.label);
                 const surface = sdl.c.TTF_RenderText_Blended(font.?.font, c_string, newColor);
                 defer sdl.c.SDL_FreeSurface(surface);
-                if (surface == null)
-                {
+                if (surface == null) {
                     return error.CreateSurfaceFailed;
                 }
 
                 const texture = sdl.c.SDL_CreateTextureFromSurface(gui.*.renderer, surface);
                 defer sdl.c.SDL_DestroyTexture(texture);
-                if (texture == null)
-                {
+                if (texture == null) {
                     return error.CreateTextureFailed;
-                } 
+                }
 
                 _ = sdl.c.SDL_RenderCopy(gui.*.renderer, texture, null, &rect);
-            }
-            else {
+            } else {
                 return error.NoOwningGuiSet;
             }
         }
     };
 }
 
-pub fn Container(comptime WrapperType: type) type
-{
+pub fn Container(comptime WrapperType: type) type {
     return struct {
         allocator: ?std.mem.Allocator = null,
         childWidgets: ?std.ArrayList(*Widget(WrapperType)) = null,
         arena: ?std.heap.ArenaAllocator = null,
         showBorder: bool = false,
 
-        pub fn init(self: *Container(WrapperType), widget: *Widget(WrapperType), allocator: std.mem.Allocator) void
-        {
+        pub fn init(self: *Container(WrapperType), widget: *Widget(WrapperType), allocator: std.mem.Allocator) void {
             _ = widget;
             self.allocator = allocator;
             self.arena = std.heap.ArenaAllocator.init(allocator);
@@ -326,26 +266,21 @@ pub fn Container(comptime WrapperType: type) type
         }
 
         //We're intentionally copying the newWidget by value here
-        pub fn addChildWidget(self: *Container(WrapperType), parentWidget: ?*Widget(WrapperType), newWidget: Widget(WrapperType)) !*Widget(WrapperType)
-        {
+        pub fn addChildWidget(self: *Container(WrapperType), parentWidget: ?*Widget(WrapperType), newWidget: Widget(WrapperType)) !*Widget(WrapperType) {
             //if children widgets have been initialized, add a new
-            if (self.childWidgets) |*children|
-            {
+            if (self.childWidgets) |*children| {
                 const allocator = self.arena.?.allocator();
                 const addedWidget = try allocator.create(Widget(WrapperType));
                 addedWidget.* = newWidget;
 
-                if (parentWidget) |widget|
-                {
+                if (parentWidget) |widget| {
                     addedWidget.*.parent = widget;
-                    if (widget.*.owningGui) |gui|
-                    {
+                    if (widget.*.owningGui) |gui| {
                         addedWidget.*.owningGui = gui;
                     }
                 }
 
-                if (self.allocator) |a|
-                {
+                if (self.allocator) |a| {
                     addedWidget.init(a);
                 }
                 try children.append(addedWidget);
@@ -355,86 +290,67 @@ pub fn Container(comptime WrapperType: type) type
             return WidgetErrors.ChildrenListNotCreated;
         }
 
-        pub fn update(self: *Container(WrapperType), widget: *Widget(WrapperType)) !void
-        {
+        pub fn update(self: *Container(WrapperType), widget: *Widget(WrapperType)) !void {
             _ = widget;
-            if (self.childWidgets) |children|
-            {
-                for(children.items) |child|
-                {
+            if (self.childWidgets) |children| {
+                for (children.items) |child| {
                     try child.update();
                 }
-            }
-            else 
-            {
+            } else {
                 return error.ChildrenListNotCreated;
             }
         }
 
-        pub fn draw(self: *Container(WrapperType), widget: *Widget(WrapperType)) !void 
-        {
-            
-            if (widget.*.owningGui) |gui|
-            {
-
+        pub fn draw(self: *Container(WrapperType), widget: *Widget(WrapperType)) !void {
+            if (widget.*.owningGui) |gui| {
                 var rect: sdl.c.SDL_Rect = .{};
                 const transformedCoords = widget.*.relativeToGlobalCoordinates();
-                
-                rect = .{.x = @intCast(transformedCoords.x), 
-                        .y = @intCast(transformedCoords.y) ,
-                        .h = widget.size.y,
-                        .w = widget.size.x,
-                        };
-       
-               // const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
-              //  .x = widget.transform.position.x, 
-               // .y = widget.transform.position.y ,
-              //  .h = widget.size.y,
-              //  .w = widget.size.x,
-               // };
+
+                rect = .{
+                    .x = @intCast(transformedCoords.x),
+                    .y = @intCast(transformedCoords.y),
+                    .h = widget.size.y,
+                    .w = widget.size.x,
+                };
+
+                // const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
+                //  .x = widget.transform.position.x,
+                // .y = widget.transform.position.y ,
+                //  .h = widget.size.y,
+                //  .w = widget.size.x,
+                // };
                 _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, widget.*.color.r, widget.*.color.g, widget.*.color.b, 255);
                 _ = sdl.c.SDL_RenderFillRect(gui.*.renderer, &rect);
             }
 
-            if (self.childWidgets) |children|
-            {
-                for(children.items) |child|
-                {
+            if (self.childWidgets) |children| {
+                for (children.items) |child| {
                     try child.draw();
                 }
-            }
-            else 
-            {
+            } else {
                 return error.ChildrenListNotCreated;
             }
         }
 
-        pub fn shutdown(self: *Container(WrapperType)) void 
-        {
-            if (self.childWidgets) |children|
-            {
-                for(children.items) |child|
-                {
+        pub fn shutdown(self: *Container(WrapperType)) void {
+            if (self.childWidgets) |children| {
+                for (children.items) |child| {
                     child.shutdown();
                 }
             }
 
-            if (self.arena) |arena|
-            {
+            if (self.arena) |arena| {
                 arena.deinit();
             }
 
-            if (self.childWidgets) |array|
-            {
+            if (self.childWidgets) |array| {
                 array.deinit();
             }
         }
-
     };
 }
 
-pub fn WidgetType(comptime WrapperType: type) type
-{
+pub fn WidgetType(comptime WrapperType: type) type {
     return union(enum) {
         const SelfType = @This();
 
@@ -446,17 +362,15 @@ pub fn WidgetType(comptime WrapperType: type) type
 
         //run these functions only on widget types that need them
 
-        pub fn init(self: *SelfType, widget: *Widget(WrapperType), allocator: std.mem.Allocator) void
-        {
-            switch(self.*) {
+        pub fn init(self: *SelfType, widget: *Widget(WrapperType), allocator: std.mem.Allocator) void {
+            switch (self.*) {
                 .Container => |*container| container.init(widget, allocator),
                 else => {},
             }
         }
 
-        pub fn update(self: *SelfType, widget: *Widget(WrapperType)) !void
-        {
-            switch(self.*) {
+        pub fn update(self: *SelfType, widget: *Widget(WrapperType)) !void {
+            switch (self.*) {
                 //.Button => |*button| try button.update(widget),
                 .CheckBox => |*checkbox| try checkbox.update(widget),
                 .Container => |*container| try container.update(widget),
@@ -464,8 +378,7 @@ pub fn WidgetType(comptime WrapperType: type) type
             }
         }
 
-        pub fn draw(self: *SelfType, widget: *Widget(WrapperType)) !void 
-        {
+        pub fn draw(self: *SelfType, widget: *Widget(WrapperType)) !void {
             switch (self.*) {
                 .Button => |*button| try button.draw(widget),
                 .CheckBox => |*checkBox| try checkBox.draw(widget),
@@ -476,32 +389,33 @@ pub fn WidgetType(comptime WrapperType: type) type
             }
         }
 
-        pub fn shutdown(self: *SelfType) void 
-        {
+        pub fn shutdown(self: *SelfType) void {
             switch (self.*) {
                 .Container => |*container| container.shutdown(),
                 else => {},
             }
         }
 
-        pub fn addChildWidget(self: *SelfType ,widget: *Widget(WrapperType), newWidget: Widget(WrapperType)) ?*Widget(WrapperType)
-        {
-            switch(self.*) { //TODO Do something smarter with the possible error here
-                .Container => |*container| return container.addChildWidget(widget, newWidget) catch {return null;},
-                else => {return null;},
+        pub fn addChildWidget(self: *SelfType, widget: *Widget(WrapperType), newWidget: Widget(WrapperType)) ?*Widget(WrapperType) {
+            switch (self.*) { //TODO Do something smarter with the possible error here
+                .Container => |*container| return container.addChildWidget(widget, newWidget) catch {
+                    return null;
+                },
+                else => {
+                    return null;
+                },
             }
         }
     };
 }
 
-pub fn Widget(comptime WrapperType: type) type
-{
+pub fn Widget(comptime WrapperType: type) type {
     return struct {
         //state data
         const SelfType = @This();
 
         label: []const u8 = "", //TODO: Make this not have to be a *c array. It's needed for SDL_ttf for now.
-        transform: Transform, 
+        transform: Transform,
         size: Vec2(i32),
         color: sdl.types.RGBAColor,
         parent: ?*Widget(WrapperType) = null,
@@ -509,117 +423,92 @@ pub fn Widget(comptime WrapperType: type) type
         hoverState: WidgetHoverStates = WidgetHoverStates.UNHOVERED,
         isMouseDown: bool = false,
 
-        onHovered: ?*const fn(outer:*WrapperType, widget: *Widget(WrapperType)) void = null,
-        onUnhovered: ?*const fn(outer:*WrapperType, widget: *Widget(WrapperType)) void = null,
-        onMouseDown: ?*const fn(outer:*WrapperType, widget: *Widget(WrapperType)) void = null,
-        onMouseUp: ?*const fn(outer:*WrapperType, widget: *Widget(WrapperType)) void = null,
+        onHovered: ?*const fn (outer: *WrapperType, widget: *Widget(WrapperType)) void = null,
+        onUnhovered: ?*const fn (outer: *WrapperType, widget: *Widget(WrapperType)) void = null,
+        onMouseDown: ?*const fn (outer: *WrapperType, widget: *Widget(WrapperType)) void = null,
+        onMouseUp: ?*const fn (outer: *WrapperType, widget: *Widget(WrapperType)) void = null,
 
         widgetType: WidgetType(WrapperType),
 
-        pub fn init(self: *Widget(WrapperType), allocator: std.mem.Allocator) void
-        {
+        pub fn init(self: *Widget(WrapperType), allocator: std.mem.Allocator) void {
             self.widgetType.init(self, allocator);
         }
 
         pub fn update(self: *Widget(WrapperType)) anyerror!void {
-
-            if (self.owningGui) |gui|
-            {
-
+            if (self.owningGui) |gui| {
                 const mousePos = gui.*.environment.mouseLocation;
                 //const widgetLocation = self.transform.position;
                 const widgetLocation = relativeToGlobalCoordinates(self);
                 //are we currently hovered?
                 const latestHoverState = (mousePos.x >= widgetLocation.x) and
-                                    (mousePos.x <= widgetLocation.x +| self.size.x) and
-                                    (mousePos.y >= widgetLocation.y) and
-                                    (mousePos.y <= widgetLocation.y +| self.size.y);
+                    (mousePos.x <= widgetLocation.x +| self.size.x) and
+                    (mousePos.y >= widgetLocation.y) and
+                    (mousePos.y <= widgetLocation.y +| self.size.y);
 
                 //std.debug.print("{}\n",.{self.hoverState});
 
-                hoverStateCheck: switch(self.hoverState)
-                {
-                    WidgetHoverStates.UNHOVERED=>
-                    {
-                        
+                hoverStateCheck: switch (self.hoverState) {
+                    WidgetHoverStates.UNHOVERED => {
                         if (true == latestHoverState) //we were unhovered, and we just stared
                         {
                             self.hoverState = WidgetHoverStates.HOVERED;
-                            continue: hoverStateCheck WidgetHoverStates.JUST_NOW_HOVERED;
-                        }
-                        else 
-                        {
+                            continue :hoverStateCheck WidgetHoverStates.JUST_NOW_HOVERED;
+                        } else {
                             //TODO do something while remaining unhovered?
                         }
                     },
-                    WidgetHoverStates.JUST_NOW_HOVERED=>
-                    {
-                        if (self.onHovered) |callback|
-                        {
-                            callback(gui.*.environment.wrapperApp,self);
+                    WidgetHoverStates.JUST_NOW_HOVERED => {
+                        if (self.onHovered) |callback| {
+                            callback(gui.*.environment.wrapperApp, self);
                         }
-                        continue: hoverStateCheck WidgetHoverStates.HOVERED;
+                        continue :hoverStateCheck WidgetHoverStates.HOVERED;
                     },
-                    WidgetHoverStates.HOVERED=>
-                    {
+                    WidgetHoverStates.HOVERED => {
                         if (false == latestHoverState) //we were hovered, now we're not
                         {
                             self.hoverState = WidgetHoverStates.UNHOVERED;
-                            continue: hoverStateCheck WidgetHoverStates.JUST_NOW_UNHOVERED;
-                        }
-                        else 
-                        {
+                            continue :hoverStateCheck WidgetHoverStates.JUST_NOW_UNHOVERED;
+                        } else {
                             //TODO do something while remaining hovered
                         }
                     },
-                    WidgetHoverStates.JUST_NOW_UNHOVERED=>
-                    {
-                        if (self.onUnhovered) |callback|
-                        {
-                            callback(gui.*.environment.wrapperApp,self);
+                    WidgetHoverStates.JUST_NOW_UNHOVERED => {
+                        if (self.onUnhovered) |callback| {
+                            callback(gui.*.environment.wrapperApp, self);
                         }
-                        continue: hoverStateCheck WidgetHoverStates.UNHOVERED;
-                    }
+                        continue :hoverStateCheck WidgetHoverStates.UNHOVERED;
+                    },
                 }
 
                 //don't even try to run onClick if you're not hovered. Makes no sense.
-                if (true == latestHoverState)  
-                {
-                    mouseStateCheck: switch(gui.*.environment.mouseLeft)
-                    {
-                        MouseButtonStates.JUST_NOW_PRESSED=>
-                        {
-                            if (self.onMouseDown) |callback|
-                            {
-                                callback(gui.*.environment.wrapperApp,self);
+                if (true == latestHoverState) {
+                    mouseStateCheck: switch (gui.*.environment.mouseLeft) {
+                        MouseButtonStates.JUST_NOW_PRESSED => {
+                            if (self.onMouseDown) |callback| {
+                                callback(gui.*.environment.wrapperApp, self);
                             }
                             self.isMouseDown = true;
                             continue :mouseStateCheck MouseButtonStates.PRESSED;
                         },
-                        MouseButtonStates.PRESSED=>
-                        {
+                        MouseButtonStates.PRESSED => {
                             //TODO mouse being held
                         },
-                        MouseButtonStates.JUST_NOW_RELEASED=>
-                        {
-                            if (self.onMouseUp) |callback|
-                            {
-                                callback(gui.*.environment.wrapperApp,self);
+                        MouseButtonStates.JUST_NOW_RELEASED => {
+                            if (self.onMouseUp) |callback| {
+                                callback(gui.*.environment.wrapperApp, self);
                             }
                             self.isMouseDown = false;
                             continue :mouseStateCheck MouseButtonStates.RELEASED;
                         },
-                        MouseButtonStates.RELEASED=>
-                        {
+                        MouseButtonStates.RELEASED => {
                             //TODO while mouse not pressed.
                             //probably do nothing here
-                        }
+                        },
                     }
                 }
 
                 try self.widgetType.update(self);
-            }
-            else {
+            } else {
                 return error.NoOwningGuiSet;
             }
         }
@@ -632,21 +521,17 @@ pub fn Widget(comptime WrapperType: type) type
             self.widgetType.shutdown();
         }
 
-        pub fn addChildWidget(self: *Widget(WrapperType), newWidget: Widget(WrapperType)) ?*Widget(WrapperType)
-        {
+        pub fn addChildWidget(self: *Widget(WrapperType), newWidget: Widget(WrapperType)) ?*Widget(WrapperType) {
             return self.widgetType.addChildWidget(self, newWidget);
         }
 
         //work up the parent widget chain, summing all cordinates to get to a global cordinates on the whole window
         //top left being 0,0
-        pub fn relativeToGlobalCoordinates(self: *Widget(WrapperType)) Vec2(i32)
-        {
-
-            var ret: Vec2(i32) = .{.x = self.transform.position.x, .y = self.transform.position.y};
+        pub fn relativeToGlobalCoordinates(self: *Widget(WrapperType)) Vec2(i32) {
+            var ret: Vec2(i32) = .{ .x = self.transform.position.x, .y = self.transform.position.y };
             var parent = self.parent;
 
-            while (parent) |p| : (parent = p.parent)
-            {
+            while (parent) |p| : (parent = p.parent) {
                 //ret = .{.x =  +| p.transform.position.x, .y = .y +| p.transform.position.y};
                 ret.x +|= p.transform.position.x;
                 ret.y +|= p.transform.position.y;
