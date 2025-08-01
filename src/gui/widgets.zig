@@ -224,17 +224,81 @@ pub fn CheckBox(comptime WrapperType: type) type
     };
 }
 
-pub const Slider = struct {
-    minValue: u32 = 0,
-    maxValue: u32 = 100,
-    currentValue: u32 = 0,
+pub fn Slider(comptime WrapperType: type) type 
+{
+    return struct {
+        minValue: f32 = 0,
+        maxValue: f32 = 100,
+        currentValue: f32 = 50,
+        orientation: enum(u2) {VERTICAL, HORIZONTAL} = .HORIZONTAL,
 
-    pub fn draw(self: *Slider, widget: *Widget) !void 
-    {
-        _ = self;
-        _ = widget;
-    }
-};
+        //function pointer for updates
+        onValueChanged: ?*fn(outer:*WrapperType, widget: *Widget(WrapperType), newState: bool) void = null,
+
+        pub fn update(self: *Slider(WrapperType), widget: *Widget(WrapperType)) !void
+        {
+            _ = self;
+            _ = widget;
+        }
+
+        pub fn draw(self: *Slider(WrapperType), widget: *Widget(WrapperType)) !void 
+        {
+            const transformedCoords = widget.*.relativeToGlobalCoordinates();
+            var rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
+                .x = transformedCoords.x,
+                .y = transformedCoords.y,
+                .h = widget.size.y,
+                .w = widget.size.x,
+            };
+
+            // Calculate ratio as floating point first, then convert to position
+  
+            const ratio = self.currentValue / self.maxValue;
+            _ = ratio;
+            // Calculate thumb position (leave some space for the thumb width)
+          //  const thumb_width: f32 = 30;
+           // const available_width: f32 = @as(f32,widget.size.x) - thumb_width;
+           // const thumbPos: f32 = ratio * available_width;
+            
+            var thumbRect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
+                .x = transformedCoords.x ,//+ thumbPos,
+                .y = transformedCoords.y,
+                .h = widget.size.y,
+                .w = 30,
+            };
+
+            switch(self.orientation)
+            {
+                //swap the orientation
+                .VERTICAL => {
+                    var temp = rect.h;
+                    rect.h = rect.w;
+                    rect.w = temp;
+
+                    temp = thumbRect.w;
+                    thumbRect.w = thumbRect.h;
+                    thumbRect.h = temp;
+                },
+                else =>{}
+            }
+
+            if (widget.*.owningGui) |gui|
+            {
+                //draw a background
+                _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, 130, 130, 130, 255);
+                _ = sdl.c.SDL_RenderFillRect(gui.*.renderer, &rect);
+
+                //give it a border
+                _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, 0, 0, 0, 255);
+                _ = sdl.c.SDL_RenderDrawRect(gui.*.renderer, &rect);
+
+                //make the draggable part
+                _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, widget.*.color.r, widget.*.color.g, widget.*.color.b, 255);
+                _ = sdl.c.SDL_RenderFillRect(gui.*.renderer, &thumbRect);
+            }
+        }
+    };
+} 
 
 pub fn Label(comptime WrapperType: type) type
 {
@@ -244,12 +308,6 @@ pub fn Label(comptime WrapperType: type) type
 
         pub fn draw(self: *Label(WrapperType), widget: *Widget(WrapperType)) !void
         {
-   
-            //TODO: Open fonts somewhere once and make them accessable to all widgets
-            //Perhaps up at the GuiApp level
-
-            //const font = sdl.c.TTF_OpenFont("/usr/share/fonts/truetype/ubuntu/Ubuntu-C.ttf", 36);
-            //defer sdl.c.TTF_CloseFont(font);
 
             //get the needed font from the list
 
@@ -266,10 +324,6 @@ pub fn Label(comptime WrapperType: type) type
                     return error.OpenFontFailed;
                 }
 
-                //var h: c_int = undefined;
-                //var w: c_int = undefined;
-
-                //_ = sdl.c.TTF_SizeText(font, widget.*.label, &w, &h);
 
                 const dims = try font.?.TextSize(widget.*.label);
 
@@ -382,12 +436,6 @@ pub fn Container(comptime WrapperType: type) type
                         .w = widget.size.x,
                         };
        
-               // const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
-              //  .x = widget.transform.position.x, 
-               // .y = widget.transform.position.y ,
-              //  .h = widget.size.y,
-              //  .w = widget.size.x,
-               // };
                 _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, widget.*.color.r, widget.*.color.g, widget.*.color.b, 255);
                 _ = sdl.c.SDL_RenderFillRect(gui.*.renderer, &rect);
             }
@@ -412,6 +460,7 @@ pub fn Container(comptime WrapperType: type) type
                 for(children.items) |child|
                 {
                     child.shutdown();
+                    self.allocator.?.destroy(child);
                 }
             }
 
@@ -419,6 +468,8 @@ pub fn Container(comptime WrapperType: type) type
             {
                 array.deinit();
             }
+
+
         }
 
     };
@@ -431,7 +482,7 @@ pub fn WidgetType(comptime WrapperType: type) type
 
         Button: Button(WrapperType),
         CheckBox: CheckBox(WrapperType),
-        Slider: Slider,
+        Slider: Slider(WrapperType),
         Label: Label(WrapperType),
         Container: Container(WrapperType),
 
@@ -462,8 +513,8 @@ pub fn WidgetType(comptime WrapperType: type) type
                 .CheckBox => |*checkBox| try checkBox.draw(widget),
                 .Label => |*label| try label.draw(widget),
                 .Container => |*container| try container.draw(widget),
-                //.Slider => |*slider| slider.draw(self, widget),
-                else => {},
+                .Slider => |*slider| try slider.draw( widget),
+                //else => {},
             }
         }
 

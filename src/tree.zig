@@ -14,7 +14,6 @@ pub fn TreeNode(comptime OuterType: type) type {
 
         pub fn AddChild(self: *TreeNode(OuterType), newChild: *TreeNode(OuterType)) !void
         {
-            std.debug.print("{?}\n",.{self.children});
             if (self.children) |*list|
             {
                 newChild.*.allocator = self.*.allocator;

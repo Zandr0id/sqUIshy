@@ -79,6 +79,11 @@ pub fn GuiApp(comptime WrapperType: type) type {
             //destory the root container
             self.options.allocator.destroy(self.rootContainerWidget.?);
 
+            for (self.*.fonts.items)|font|
+            {
+                self.options.allocator.destroy(font);
+            }
+
             //clear out all fonts
             self.*.fonts.deinit();
         }
