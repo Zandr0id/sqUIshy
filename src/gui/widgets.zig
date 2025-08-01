@@ -185,13 +185,6 @@ pub fn Slider(comptime WrapperType: type) type
         currentValue: f32 = 50,
         orientation: enum(u2) {VERTICAL, HORIZONTAL} = .HORIZONTAL,
 
-<<<<<<< HEAD
-    pub fn draw(self: *Slider, widget: *Widget) !void {
-        _ = self;
-        _ = widget;
-    }
-};
-=======
         //function pointer for updates
         onValueChanged: ?*fn(outer:*WrapperType, widget: *Widget(WrapperType), newState: bool) void = null,
 
@@ -259,25 +252,14 @@ pub fn Slider(comptime WrapperType: type) type
         }
     };
 } 
->>>>>>> main
 
 pub fn Label(comptime WrapperType: type) type {
     return struct {
         fontIndex: usize,
         value: []const u8 = "",
 
-<<<<<<< HEAD
-        pub fn draw(self: *Label(WrapperType), widget: *Widget(WrapperType)) !void {
-
-            //TODO: Open fonts somewhere once and make them accessable to all widgets
-            //Perhaps up at the GuiApp level
-
-            //const font = sdl.c.TTF_OpenFont("/usr/share/fonts/truetype/ubuntu/Ubuntu-C.ttf", 36);
-            //defer sdl.c.TTF_CloseFont(font);
-=======
         pub fn draw(self: *Label(WrapperType), widget: *Widget(WrapperType)) !void
         {
->>>>>>> main
 
             //get the needed font from the list
 
@@ -339,15 +321,9 @@ pub fn Container(comptime WrapperType: type) type {
         //We're intentionally copying the newWidget by value here
         pub fn addChildWidget(self: *Container(WrapperType), parentWidget: ?*Widget(WrapperType), newWidget: Widget(WrapperType)) !*Widget(WrapperType) {
             //if children widgets have been initialized, add a new
-<<<<<<< HEAD
-            if (self.childWidgets) |*children| {
-                const allocator = self.arena.?.allocator();
-                const addedWidget = try allocator.create(Widget(WrapperType));
-=======
             if (self.childWidgets) |*children|
             {
                 const addedWidget = try self.*.allocator.?.create(Widget(WrapperType));
->>>>>>> main
                 addedWidget.* = newWidget;
 
                 if (parentWidget) |widget| {
@@ -382,22 +358,6 @@ pub fn Container(comptime WrapperType: type) type {
             if (widget.*.owningGui) |gui| {
                 var rect: sdl.c.SDL_Rect = .{};
                 const transformedCoords = widget.*.relativeToGlobalCoordinates();
-<<<<<<< HEAD
-
-                rect = .{
-                    .x = @intCast(transformedCoords.x),
-                    .y = @intCast(transformedCoords.y),
-                    .h = widget.size.y,
-                    .w = widget.size.x,
-                };
-
-                // const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
-                //  .x = widget.transform.position.x,
-                // .y = widget.transform.position.y ,
-                //  .h = widget.size.y,
-                //  .w = widget.size.x,
-                // };
-=======
                 
                 rect = .{.x = @intCast(transformedCoords.x), 
                         .y = @intCast(transformedCoords.y) ,
@@ -405,7 +365,6 @@ pub fn Container(comptime WrapperType: type) type {
                         .w = widget.size.x,
                         };
        
->>>>>>> main
                 _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, widget.*.color.r, widget.*.color.g, widget.*.color.b, 255);
                 _ = sdl.c.SDL_RenderFillRect(gui.*.renderer, &rect);
             }
@@ -427,16 +386,8 @@ pub fn Container(comptime WrapperType: type) type {
                 }
             }
 
-<<<<<<< HEAD
-            if (self.arena) |arena| {
-                arena.deinit();
-            }
-
-            if (self.childWidgets) |array| {
-=======
             if (self.childWidgets) |array|
             {
->>>>>>> main
                 array.deinit();
             }
 
