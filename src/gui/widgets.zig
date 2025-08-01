@@ -13,7 +13,6 @@ const WidgetErrors = error{
     CreateTextureFailed,
     OpenFontFailed,
     ChildrenListNotCreated,
-    WidgetArenaNotCreated,
     NoOwningGuiSet,
 };
 
@@ -314,14 +313,12 @@ pub fn Container(comptime WrapperType: type) type
     return struct {
         allocator: ?std.mem.Allocator = null,
         childWidgets: ?std.ArrayList(*Widget(WrapperType)) = null,
-        arena: ?std.heap.ArenaAllocator = null,
         showBorder: bool = false,
 
         pub fn init(self: *Container(WrapperType), widget: *Widget(WrapperType), allocator: std.mem.Allocator) void
         {
             _ = widget;
             self.allocator = allocator;
-            self.arena = std.heap.ArenaAllocator.init(allocator);
             self.childWidgets = std.ArrayList(*Widget(WrapperType)).init(allocator);
         }
 
@@ -331,8 +328,7 @@ pub fn Container(comptime WrapperType: type) type
             //if children widgets have been initialized, add a new
             if (self.childWidgets) |*children|
             {
-                const allocator = self.arena.?.allocator();
-                const addedWidget = try allocator.create(Widget(WrapperType));
+                const addedWidget = try self.*.allocator.?.create(Widget(WrapperType));
                 addedWidget.* = newWidget;
 
                 if (parentWidget) |widget|
@@ -417,11 +413,6 @@ pub fn Container(comptime WrapperType: type) type
                 {
                     child.shutdown();
                 }
-            }
-
-            if (self.arena) |arena|
-            {
-                arena.deinit();
             }
 
             if (self.childWidgets) |array|

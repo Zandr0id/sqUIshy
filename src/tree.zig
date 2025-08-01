@@ -36,7 +36,6 @@ pub fn TreeNode(comptime OuterType: type) type {
             if (self.allocator) |allocator|
             {
                 self.children = std.ArrayList(*TreeNode(OuterType)).init(allocator);
-                std.debug.print("Init happened\n",.{});
             }
             else
             {
