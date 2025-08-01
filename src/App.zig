@@ -13,6 +13,9 @@ pub const App = struct {
     right_panel: ?*AppWidget = null,
     small_panel: ?*AppWidget = null,
 
+    vertical_slider: ?*AppWidget = null,
+    horizontal_slider: ?*AppWidget = null,
+
     green_button: ?*AppWidget = null,
     red_button: ?*AppWidget = null,
     label_1: ?*AppWidget = null,
@@ -134,6 +137,16 @@ pub const App = struct {
             };
 
             self.checkbox = self.left_panel.?.*.addChildWidget(checkbox_template);
+
+            const slider_template: AppWidget = .{
+                .label = "Slider1",
+                .widgetType = gui.widgets.WidgetType(App){.Slider = .{.orientation = .HORIZONTAL, .minValue = 0, .maxValue = 100, .currentValue = 50}},
+                .size = .{.x = 300, .y = 50},
+                .color = .{.r = 30, .g = 0, .b = 200, .a = 255},
+                .transform = .{.position = .{.x = 10, .y = 200}},
+            };
+
+            self.horizontal_slider = self.small_panel.?.*.addChildWidget(slider_template);
 
             //run the app until it quits
             try self.gui.*.Run();

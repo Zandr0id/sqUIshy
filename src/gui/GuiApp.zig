@@ -29,7 +29,6 @@ pub fn GuiApp(comptime WrapperType: type) type {
 
         //these are for tracking fonts as they are loaded
         fonts: std.ArrayList(*fonts.Font) = undefined,
-        arena: std.heap.ArenaAllocator = undefined,
 
         //environment info should be accessable to all widgets within the root
         environment: struct {
@@ -48,8 +47,6 @@ pub fn GuiApp(comptime WrapperType: type) type {
 
             self.options = options;
             self.environment = .{.windowSize = self.options.startingWindowSize, .wrapperApp = wrapper};
-            
-            self.arena = std.heap.ArenaAllocator.init(self.options.allocator);
 
             //create the root container widget to house all other widgets
             self.rootContainerWidget = try options.allocator.create(widgets.Widget(WrapperType));
@@ -73,9 +70,6 @@ pub fn GuiApp(comptime WrapperType: type) type {
         {
             sdl.Quit();
 
-            self.*.arena.deinit();
-            //self.*.appWidgets.deinit();
-
             //tell all child widgets to shutdown
             if (self.rootContainerWidget) |root|
             {
@@ -84,6 +78,11 @@ pub fn GuiApp(comptime WrapperType: type) type {
 
             //destory the root container
             self.options.allocator.destroy(self.rootContainerWidget.?);
+
+            for (self.*.fonts.items)|font|
+            {
+                self.options.allocator.destroy(font);
+            }
 
             //clear out all fonts
             self.*.fonts.deinit();
@@ -100,8 +99,7 @@ pub fn GuiApp(comptime WrapperType: type) type {
                 return error.CantAddWidgetsWhileRunning;
             }
 
-            const allocator = self.arena.allocator();
-            const newFont = try allocator.create(fonts.Font);
+            const newFont = try self.options.allocator.create(fonts.Font);
 
             try newFont.LoadFont(path, size);
 

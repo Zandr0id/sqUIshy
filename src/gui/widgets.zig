@@ -13,7 +13,6 @@ const WidgetErrors = error{
     CreateTextureFailed,
     OpenFontFailed,
     ChildrenListNotCreated,
-    WidgetArenaNotCreated,
     NoOwningGuiSet,
 };
 
@@ -178,22 +177,96 @@ pub fn CheckBox(comptime WrapperType: type) type {
     };
 }
 
-pub const Slider = struct {
-    minValue: u32 = 0,
-    maxValue: u32 = 100,
-    currentValue: u32 = 0,
+pub fn Slider(comptime WrapperType: type) type 
+{
+    return struct {
+        minValue: f32 = 0,
+        maxValue: f32 = 100,
+        currentValue: f32 = 50,
+        orientation: enum(u2) {VERTICAL, HORIZONTAL} = .HORIZONTAL,
 
+<<<<<<< HEAD
     pub fn draw(self: *Slider, widget: *Widget) !void {
         _ = self;
         _ = widget;
     }
 };
+=======
+        //function pointer for updates
+        onValueChanged: ?*fn(outer:*WrapperType, widget: *Widget(WrapperType), newState: bool) void = null,
+
+        pub fn update(self: *Slider(WrapperType), widget: *Widget(WrapperType)) !void
+        {
+            _ = self;
+            _ = widget;
+        }
+
+        pub fn draw(self: *Slider(WrapperType), widget: *Widget(WrapperType)) !void 
+        {
+            const transformedCoords = widget.*.relativeToGlobalCoordinates();
+            var rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
+                .x = transformedCoords.x,
+                .y = transformedCoords.y,
+                .h = widget.size.y,
+                .w = widget.size.x,
+            };
+
+            // Calculate ratio as floating point first, then convert to position
+  
+            const ratio = self.currentValue / self.maxValue;
+            _ = ratio;
+            // Calculate thumb position (leave some space for the thumb width)
+          //  const thumb_width: f32 = 30;
+           // const available_width: f32 = @as(f32,widget.size.x) - thumb_width;
+           // const thumbPos: f32 = ratio * available_width;
+            
+            var thumbRect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
+                .x = transformedCoords.x ,//+ thumbPos,
+                .y = transformedCoords.y,
+                .h = widget.size.y,
+                .w = 30,
+            };
+
+            switch(self.orientation)
+            {
+                //swap the orientation
+                .VERTICAL => {
+                    var temp = rect.h;
+                    rect.h = rect.w;
+                    rect.w = temp;
+
+                    temp = thumbRect.w;
+                    thumbRect.w = thumbRect.h;
+                    thumbRect.h = temp;
+                },
+                else =>{}
+            }
+
+            if (widget.*.owningGui) |gui|
+            {
+                //draw a background
+                _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, 130, 130, 130, 255);
+                _ = sdl.c.SDL_RenderFillRect(gui.*.renderer, &rect);
+
+                //give it a border
+                _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, 0, 0, 0, 255);
+                _ = sdl.c.SDL_RenderDrawRect(gui.*.renderer, &rect);
+
+                //make the draggable part
+                _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, widget.*.color.r, widget.*.color.g, widget.*.color.b, 255);
+                _ = sdl.c.SDL_RenderFillRect(gui.*.renderer, &thumbRect);
+            }
+        }
+    };
+} 
+>>>>>>> main
 
 pub fn Label(comptime WrapperType: type) type {
     return struct {
         fontIndex: usize,
         value: []const u8 = "",
 
+<<<<<<< HEAD
         pub fn draw(self: *Label(WrapperType), widget: *Widget(WrapperType)) !void {
 
             //TODO: Open fonts somewhere once and make them accessable to all widgets
@@ -201,6 +274,10 @@ pub fn Label(comptime WrapperType: type) type {
 
             //const font = sdl.c.TTF_OpenFont("/usr/share/fonts/truetype/ubuntu/Ubuntu-C.ttf", 36);
             //defer sdl.c.TTF_CloseFont(font);
+=======
+        pub fn draw(self: *Label(WrapperType), widget: *Widget(WrapperType)) !void
+        {
+>>>>>>> main
 
             //get the needed font from the list
 
@@ -212,10 +289,6 @@ pub fn Label(comptime WrapperType: type) type {
                     return error.OpenFontFailed;
                 }
 
-                //var h: c_int = undefined;
-                //var w: c_int = undefined;
-
-                //_ = sdl.c.TTF_SizeText(font, widget.*.label, &w, &h);
 
                 const dims = try font.?.TextSize(widget.*.label);
 
@@ -255,22 +328,26 @@ pub fn Container(comptime WrapperType: type) type {
     return struct {
         allocator: ?std.mem.Allocator = null,
         childWidgets: ?std.ArrayList(*Widget(WrapperType)) = null,
-        arena: ?std.heap.ArenaAllocator = null,
         showBorder: bool = false,
 
         pub fn init(self: *Container(WrapperType), widget: *Widget(WrapperType), allocator: std.mem.Allocator) void {
             _ = widget;
             self.allocator = allocator;
-            self.arena = std.heap.ArenaAllocator.init(allocator);
             self.childWidgets = std.ArrayList(*Widget(WrapperType)).init(allocator);
         }
 
         //We're intentionally copying the newWidget by value here
         pub fn addChildWidget(self: *Container(WrapperType), parentWidget: ?*Widget(WrapperType), newWidget: Widget(WrapperType)) !*Widget(WrapperType) {
             //if children widgets have been initialized, add a new
+<<<<<<< HEAD
             if (self.childWidgets) |*children| {
                 const allocator = self.arena.?.allocator();
                 const addedWidget = try allocator.create(Widget(WrapperType));
+=======
+            if (self.childWidgets) |*children|
+            {
+                const addedWidget = try self.*.allocator.?.create(Widget(WrapperType));
+>>>>>>> main
                 addedWidget.* = newWidget;
 
                 if (parentWidget) |widget| {
@@ -305,6 +382,7 @@ pub fn Container(comptime WrapperType: type) type {
             if (widget.*.owningGui) |gui| {
                 var rect: sdl.c.SDL_Rect = .{};
                 const transformedCoords = widget.*.relativeToGlobalCoordinates();
+<<<<<<< HEAD
 
                 rect = .{
                     .x = @intCast(transformedCoords.x),
@@ -319,6 +397,15 @@ pub fn Container(comptime WrapperType: type) type {
                 //  .h = widget.size.y,
                 //  .w = widget.size.x,
                 // };
+=======
+                
+                rect = .{.x = @intCast(transformedCoords.x), 
+                        .y = @intCast(transformedCoords.y) ,
+                        .h = widget.size.y,
+                        .w = widget.size.x,
+                        };
+       
+>>>>>>> main
                 _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, widget.*.color.r, widget.*.color.g, widget.*.color.b, 255);
                 _ = sdl.c.SDL_RenderFillRect(gui.*.renderer, &rect);
             }
@@ -336,16 +423,24 @@ pub fn Container(comptime WrapperType: type) type {
             if (self.childWidgets) |children| {
                 for (children.items) |child| {
                     child.shutdown();
+                    self.allocator.?.destroy(child);
                 }
             }
 
+<<<<<<< HEAD
             if (self.arena) |arena| {
                 arena.deinit();
             }
 
             if (self.childWidgets) |array| {
+=======
+            if (self.childWidgets) |array|
+            {
+>>>>>>> main
                 array.deinit();
             }
+
+
         }
     };
 }
@@ -356,7 +451,7 @@ pub fn WidgetType(comptime WrapperType: type) type {
 
         Button: Button(WrapperType),
         CheckBox: CheckBox(WrapperType),
-        Slider: Slider,
+        Slider: Slider(WrapperType),
         Label: Label(WrapperType),
         Container: Container(WrapperType),
 
@@ -384,8 +479,8 @@ pub fn WidgetType(comptime WrapperType: type) type {
                 .CheckBox => |*checkBox| try checkBox.draw(widget),
                 .Label => |*label| try label.draw(widget),
                 .Container => |*container| try container.draw(widget),
-                //.Slider => |*slider| slider.draw(self, widget),
-                else => {},
+                .Slider => |*slider| try slider.draw( widget),
+                //else => {},
             }
         }
 

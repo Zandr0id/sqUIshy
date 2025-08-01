@@ -17,4 +17,4 @@ This has only been tested on linux.
 
 ```cd``` into the top level directory and then ```zig build run``` to take it for a spin!
 
-![A little demo](./media/demo2.gif)
+![A little demo](./media/demo3.gif)
