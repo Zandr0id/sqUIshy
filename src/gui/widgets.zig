@@ -5,6 +5,7 @@ const std = @import("std");
 const sdl = @import("../sdl/sdl.zig");
 const guiApp = @import("GuiApp.zig");
 const fonts = @import("fonts.zig");
+const shapes = @import("../shapes/shapes.zig");
 
 //const ttf = @cImport({@cInclude("SDL2/SDL_ttf.h");});
 
@@ -20,40 +21,28 @@ pub const WidgetHoverStates = enum(u8) { UNHOVERED, JUST_NOW_UNHOVERED, JUST_NOW
 
 pub const MouseButtonStates = enum(u8) { RELEASED, JUST_NOW_RELEASED, JUST_NOW_PRESSED, PRESSED };
 
-pub fn Vec2(comptime T: type) type {
-    return struct {
-        x: T = undefined,
-        y: T = undefined,
-
-        pub fn Create(pos_x: T, pos_y: T) @This() {
-            return .{
-                .x = pos_x,
-                .y = pos_y,
-            };
-        }
-    };
-}
 
 pub const Transform = struct {
-    position: Vec2(i32) = .{ .x = 0, .y = 0 }, //x,y
+    position: shapes.Vec2(i32) = .{ .x = 0, .y = 0 }, //x,y
     rotation: f32 = undefined, //degrees
-    scale: Vec2(f32) = .{ .x = 1.0, .y = 1.0 }, //x,y
+    scale: shapes.Vec2(f32) = .{ .x = 1.0, .y = 1.0 }, //x,y
 };
 
 pub fn Button(comptime WrapperType: type) type {
     return struct {
         fontIndex: ?usize = null,
+        shape: shapes.Shape=.{.Rect=.{}},
 
         pub fn draw(self: *Button(WrapperType), widget: *Widget(WrapperType)) !void {
             const transfromedCoords = widget.*.relativeToGlobalCoordinates();
             const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
                 .x = transfromedCoords.x, //
                 .y = transfromedCoords.y,
-                .h = widget.size.y,
-                .w = widget.size.x,
+                .h = widget.presentation.bounds.y,
+                .w = widget.presentation.bounds.x,
             };
 
-            var color: sdl.types.RGBAColor = widget.color;
+            var color: sdl.types.RGBAColor = widget.presentation.color;
 
             if (widget.*.hoverState == WidgetHoverStates.HOVERED) {
                 if (widget.*.isMouseDown) {
@@ -136,11 +125,11 @@ pub fn CheckBox(comptime WrapperType: type) type {
             const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
                 .x = transformedCoords.x,
                 .y = transformedCoords.y,
-                .h = widget.size.y,
-                .w = widget.size.x,
+                .h = widget.presentation.bounds.y,
+                .w = widget.presentation.bounds.x,
             };
 
-            var color: sdl.types.RGBAColor = widget.color;
+            var color: sdl.types.RGBAColor = widget.presentation.color;
 
             if (widget.*.hoverState == WidgetHoverStates.HOVERED) {
                 //lighten the color just a bit
@@ -165,8 +154,8 @@ pub fn CheckBox(comptime WrapperType: type) type {
                 const checked_rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
                     .x = transformedCoords.x + border, //
                     .y = transformedCoords.y + border,
-                    .h = widget.size.y - (2 * border),
-                    .w = widget.size.x - (2 * border),
+                    .h = widget.presentation.bounds.y - (2 * border),
+                    .w = widget.presentation.bounds.x - (2 * border),
                 };
 
                 _ = sdl.c.SDL_RenderFillRect(gui.*.renderer, &checked_rect);
@@ -200,8 +189,8 @@ pub fn Slider(comptime WrapperType: type) type
             var rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
                 .x = transformedCoords.x,
                 .y = transformedCoords.y,
-                .h = widget.size.y,
-                .w = widget.size.x,
+                .h = widget.presentation.bounds.y,
+                .w = widget.presentation.bounds.x,
             };
 
             // Calculate ratio as floating point first, then convert to position
@@ -210,13 +199,13 @@ pub fn Slider(comptime WrapperType: type) type
             _ = ratio;
             // Calculate thumb position (leave some space for the thumb width)
           //  const thumb_width: f32 = 30;
-           // const available_width: f32 = @as(f32,widget.size.x) - thumb_width;
+           // const available_width: f32 = @as(f32,widget.bounds.x) - thumb_width;
            // const thumbPos: f32 = ratio * available_width;
             
             var thumbRect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
                 .x = transformedCoords.x ,//+ thumbPos,
                 .y = transformedCoords.y,
-                .h = widget.size.y,
+                .h = widget.presentation.bounds.y,
                 .w = 30,
             };
 
@@ -246,7 +235,11 @@ pub fn Slider(comptime WrapperType: type) type
                 _ = sdl.c.SDL_RenderDrawRect(gui.*.renderer, &rect);
 
                 //make the draggable part
-                _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, widget.*.color.r, widget.*.color.g, widget.*.color.b, 255);
+                _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer,
+                                                widget.*.presentation.color.r,
+                                                widget.*.presentation.color.g,
+                                                widget.*.presentation.color.b,
+                                                255);
                 _ = sdl.c.SDL_RenderFillRect(gui.*.renderer, &thumbRect);
             }
         }
@@ -283,7 +276,10 @@ pub fn Label(comptime WrapperType: type) type {
                     .w = dims.w,
                 };
 
-                const newColor: sdl.c.SDL_Color = .{ .r = widget.*.color.r, .g = widget.*.color.g, .b = widget.*.color.b, .a = 255 };
+                const newColor: sdl.c.SDL_Color = .{ .r = widget.*.presentation.color.r,
+                                                     .g = widget.*.presentation.color.g, 
+                                                     .b = widget.*.presentation.color.b, 
+                                                     .a = 255 };
 
                 const c_string: [*c]const u8 = @ptrCast(widget.*.label);
                 const surface = sdl.c.TTF_RenderText_Blended(font.?.font, c_string, newColor);
@@ -361,11 +357,15 @@ pub fn Container(comptime WrapperType: type) type {
                 
                 rect = .{.x = @intCast(transformedCoords.x), 
                         .y = @intCast(transformedCoords.y) ,
-                        .h = widget.size.y,
-                        .w = widget.size.x,
+                        .h = widget.presentation.bounds.y,
+                        .w = widget.presentation.bounds.x,
                         };
        
-                _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, widget.*.color.r, widget.*.color.g, widget.*.color.b, 255);
+                _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, 
+                                                widget.*.presentation.color.r,
+                                                widget.*.presentation.color.g,
+                                                widget.*.presentation.color.b,
+                                                255);
                 _ = sdl.c.SDL_RenderFillRect(gui.*.renderer, &rect);
             }
 
@@ -460,10 +460,13 @@ pub fn Widget(comptime WrapperType: type) type {
         //state data
         const SelfType = @This();
 
-        label: []const u8 = "", //TODO: Make this not have to be a *c array. It's needed for SDL_ttf for now.
-        transform: Transform,
-        size: Vec2(i32),
-        color: sdl.types.RGBAColor,
+        label: []const u8 = "",
+        presentation: struct{
+            transform: Transform,
+            bounds: shapes.Vec2(i32),
+            shape: shapes.Shape,
+            color: sdl.types.RGBAColor,
+        },
         parent: ?*Widget(WrapperType) = null,
         owningGui: ?*guiApp.GuiApp(WrapperType) = null,
         hoverState: WidgetHoverStates = WidgetHoverStates.UNHOVERED,
@@ -483,13 +486,19 @@ pub fn Widget(comptime WrapperType: type) type {
         pub fn update(self: *Widget(WrapperType)) anyerror!void {
             if (self.owningGui) |gui| {
                 const mousePos = gui.*.environment.mouseLocation;
-                //const widgetLocation = self.transform.position;
+
                 const widgetLocation = relativeToGlobalCoordinates(self);
+
                 //are we currently hovered?
-                const latestHoverState = (mousePos.x >= widgetLocation.x) and
-                    (mousePos.x <= widgetLocation.x +| self.size.x) and
-                    (mousePos.y >= widgetLocation.y) and
-                    (mousePos.y <= widgetLocation.y +| self.size.y);
+                //const latestHoverState = (mousePos.x >= widgetLocation.x) and
+                //    (mousePos.x <= widgetLocation.x +| self.bounds.x) and
+                //    (mousePos.y >= widgetLocation.y) and
+                //    (mousePos.y <= widgetLocation.y +| self.bounds.y);
+
+                const float_location = shapes.Vec2(f32){.x = @floatFromInt(widgetLocation.x + (@divTrunc(self.presentation.bounds.x, 2))), .y = @floatFromInt(widgetLocation.y + (@divTrunc(self.presentation.bounds.y, 2)))};
+                const float_mouse_location =shapes.Vec2(f32){.x = @floatFromInt(mousePos.x), .y=@floatFromInt(mousePos.y)};
+
+                const latestHoverState = self.presentation.shape.containsPoint(float_location,float_mouse_location);
 
                 //std.debug.print("{}\n",.{self.hoverState});
 
@@ -573,14 +582,14 @@ pub fn Widget(comptime WrapperType: type) type {
 
         //work up the parent widget chain, summing all cordinates to get to a global cordinates on the whole window
         //top left being 0,0
-        pub fn relativeToGlobalCoordinates(self: *Widget(WrapperType)) Vec2(i32) {
-            var ret: Vec2(i32) = .{ .x = self.transform.position.x, .y = self.transform.position.y };
+        pub fn relativeToGlobalCoordinates(self: *Widget(WrapperType)) shapes.Vec2(i32) {
+            var ret: shapes.Vec2(i32) = .{ .x = self.presentation.transform.position.x, .y = self.presentation.transform.position.y };
             var parent = self.parent;
 
             while (parent) |p| : (parent = p.parent) {
                 //ret = .{.x =  +| p.transform.position.x, .y = .y +| p.transform.position.y};
-                ret.x +|= p.transform.position.x;
-                ret.y +|= p.transform.position.y;
+                ret.x +|= p.presentation.transform.position.x;
+                ret.y +|= p.presentation.transform.position.y;
             }
 
             return ret;

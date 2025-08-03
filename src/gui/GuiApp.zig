@@ -2,6 +2,7 @@ const std = @import("std");
 const sdl = @import("../sdl/sdl.zig");
 pub const widgets = @import("widgets.zig");
 const fonts = @import("fonts.zig");
+const shapes = @import("../shapes/shapes.zig");
 
 const GuiAppErrors = error{
     CantAddWidgetsWhileRunning,
@@ -10,7 +11,7 @@ const GuiAppErrors = error{
 };
 
 pub const GuiAppOptions = struct{
-    startingWindowSize: widgets.Vec2(i32) = .{.x = 0, .y = 0},
+    startingWindowSize: shapes.Vec2(i32) = .{.x = 0, .y = 0},
     appTitle: []const u8,
     allocator: std.mem.Allocator,
     backgroundColor: sdl.types.RGBAColor = .{.r= 0,.g = 0, .b = 0, .a = 255}
@@ -33,8 +34,8 @@ pub fn GuiApp(comptime WrapperType: type) type {
         //environment info should be accessable to all widgets within the root
         environment: struct {
             wrapperApp: *WrapperType = undefined,
-            windowSize: widgets.Vec2(i32) = .{.x = 0, .y=0},
-            mouseLocation: widgets.Vec2(i32) = .{.x = 0,.y = 0},
+            windowSize: shapes.Vec2(i32) = .{.x = 0, .y=0},
+            mouseLocation: shapes.Vec2(i32) = .{.x = 0,.y = 0},
             mouseLeft: widgets.MouseButtonStates = widgets.MouseButtonStates.RELEASED,
             mouseRight: widgets.MouseButtonStates = widgets.MouseButtonStates.RELEASED,
         } = undefined,
@@ -50,11 +51,14 @@ pub fn GuiApp(comptime WrapperType: type) type {
 
             //create the root container widget to house all other widgets
             self.rootContainerWidget = try options.allocator.create(widgets.Widget(WrapperType));
-            self.rootContainerWidget.?.* = .{.transform = .{.position = .{ .x = 0, .y = 0 }},
-                                            .color = self.options.backgroundColor,
+            self.rootContainerWidget.?.* = .{.presentation = .{.transform = .{.position = .{ .x = 0, .y = 0 }},            
+                                                                            .color = self.options.backgroundColor,
+                                                                            .shape = .{.Rect = .{.size = .{.x = @floatFromInt(options.startingWindowSize.x),
+                                                                                         .y = @floatFromInt(options.startingWindowSize.y)}}},
+                                                                            .bounds = .{.x = options.startingWindowSize.x, .y = options.startingWindowSize.y}
+                                                                            },
                                             .label = "not set",
-                                            .widgetType = widgets.WidgetType(WrapperType){ .Container = .{}},
-                                            .size = .{.x = options.startingWindowSize.x, .y = options.startingWindowSize.y}};
+                                            .widgetType = widgets.WidgetType(WrapperType){ .Container = .{}}};
 
             self.rootContainerWidget.?.*.owningGui = self;
             self.rootContainerWidget.?.*.widgetType.Container.init(self.rootContainerWidget.?, self.options.allocator);
