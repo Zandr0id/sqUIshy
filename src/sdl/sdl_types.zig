@@ -5,7 +5,7 @@ pub const RGBAColor = struct {
     b: u8 = 0,
     a: u8 = 0,
 
-    pub fn AsInt32() u32 {
-        return (.r << 24) + (.g << 16) + (.b << 8) + .a;
+    pub fn AsInt32(self:RGBAColor) u32 {
+        return (self.r << 24) + (self.g << 16) + (self.b << 8) + .a;
     }
 };

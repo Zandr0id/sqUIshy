@@ -51,14 +51,18 @@ pub fn GuiApp(comptime WrapperType: type) type {
 
             //create the root container widget to house all other widgets
             self.rootContainerWidget = try options.allocator.create(widgets.Widget(WrapperType));
-            self.rootContainerWidget.?.* = .{.presentation = .{.transform = .{.position = .{ .x = 0, .y = 0 }},            
-                                                                            .color = self.options.backgroundColor,
-                                                                            .shape = .{.Rect = .{.size = .{.x = @floatFromInt(options.startingWindowSize.x),
-                                                                                         .y = @floatFromInt(options.startingWindowSize.y)}}},
-                                                                            .bounds = .{.x = options.startingWindowSize.x, .y = options.startingWindowSize.y}
-                                                                            },
-                                            .label = "not set",
-                                            .widgetType = widgets.WidgetType(WrapperType){ .Container = .{}}};
+            self.rootContainerWidget.?.* = .{
+                .presentation = .{
+                    .transform = .{ .position = .{ .x = 0, .y = 0 } },
+                    .color = self.options.backgroundColor,
+                    .shape = .{ .Rect = .{ .size = .{
+                        .x = @floatFromInt(options.startingWindowSize.x),
+                        .y = @floatFromInt(options.startingWindowSize.y),
+                    } } },
+                },
+                .label = "not set",
+                .widgetType = widgets.WidgetType(WrapperType){ .Container = .{} },
+            };
 
             self.rootContainerWidget.?.*.owningGui = self;
             self.rootContainerWidget.?.*.widgetType.Container.init(self.rootContainerWidget.?, self.options.allocator);

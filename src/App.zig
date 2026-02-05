@@ -49,18 +49,30 @@ pub const App = struct {
 
             const button_template: AppWidget = .{
                 .label = "Green Button",
-                .widgetType = gui.widgets.WidgetType(App){ .Button = gui.widgets.Button(App){.fontIndex = 0} },
-                .presentation = .{.shape = .{.Rect = .{.size = .{.x = 300, .y = 100}}},
-                                                .color = .{ .r = 0, .g = 200, .b = 0, .a = 255 },
-                                                .transform = gui.widgets.Transform{ .position = .{ .x = 10, .y = 10 } },
-                                                .bounds = .{.x = 300, .y = 100}
-                
-                }, //
+                .widgetType = gui.widgets.WidgetType(App){ .Button = gui.widgets.Button(App){ .fontIndex = 0 } },
+                .presentation = .{
+                    .shape = .{ .Rect = .{ .size = .{ .x = 300, .y = 100 } } },
+                    .color = .{ .r = 0, .g = 200, .b = 0, .a = 255 },
+                    .transform = gui.widgets.Transform{ .position = .{ .x = 10, .y = 10 } },
+                },
                 .onMouseUp = OnClick1,
             };
 
             self.green_button = root.*.addChildWidget(button_template);
-            
+
+            const circle_button: AppWidget = .{
+                .label = "Red Button",
+                .widgetType = gui.widgets.WidgetType(App){ .Button = gui.widgets.Button(App){ .fontIndex = 0 } },
+                .presentation = .{
+                    .shape = .{ .Circle = .{ .radius = 50 } },
+                    .color = .{ .r = 200, .g = 0, .b = 0, .a = 255 },
+                    .transform = gui.widgets.Transform{ .position = .{ .x = 350, .y = 10 } },
+                },
+                .onMouseUp = OnClick1,
+            };
+
+            self.red_button = root.*.addChildWidget(circle_button);
+
             //run the app until it quits
             try self.gui.*.Run();
         }

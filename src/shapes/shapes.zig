@@ -34,7 +34,7 @@ pub fn Vec3(comptime T: type) type {
 pub const Circle = struct{
     radius: f32 = 1.0,
 
-    pub fn circumfrence(self: *Circle) f32
+    pub fn perimeter(self: *Circle) f32
     {
         return 2 * PI * self.radius;
     }
@@ -55,12 +55,12 @@ pub const Rect = struct {
 
     pub fn area(self: *Rect) f32
     {
-        return (self.size.x) * (self.half.y);
+        return (self.size.x) * (self.size.y);
     }
 
     pub fn perimeter(self: *Rect) f32
     {
-        return (self.half.x*2) + (self.half.y*2);
+        return (self.size.x*2) + (self.size.y*2);
     }
 
     pub fn sdf(self: *Rect, center: Vec2(f32), point: Vec2(f32)) f32
@@ -87,6 +87,7 @@ const CompositShape = struct {
     shapes: []Shape,
 };
 
+//The Shape interface. All the this set of functions should be implemented by other shapes.
 pub const Shape = union(enum) {
     Circle: Circle,
     Rect: Rect,
@@ -102,7 +103,7 @@ pub const Shape = union(enum) {
     pub fn perimeter(self: *Shape) f32
     {
         switch(self.*){
-            .Circle =>|*circle| {return circle.circumfrence();},
+            .Circle =>|*circle| {return circle.perimeter();},
             .Rect => |*rect| {return rect.perimeter();},
         }
     }
@@ -118,5 +119,12 @@ pub const Shape = union(enum) {
     pub fn containsPoint(self: *Shape, center: Vec2(f32), point: Vec2(f32)) bool
     {
         return self.sdf(center, point) <= 0;
+    }
+
+    pub fn getBounds(self: *Shape) Vec2(f32) {
+        switch (self.*) {
+            .Circle => |circle| return .{ .x = circle.radius * 2, .y = circle.radius * 2 },
+            .Rect => |rect| return rect.size,
+        }
     }
 };

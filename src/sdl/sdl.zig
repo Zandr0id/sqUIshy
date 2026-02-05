@@ -103,9 +103,32 @@ pub const Renderer = struct {
             var oldColor: types.RGBAColor = .{};
 
             _ = c.SDL_GetRenderDrawColor(r, &(oldColor.r), &(oldColor.g), &(oldColor.b), &(oldColor.a));
-            setDrawColor(renderer, color);
+            setDrawColor(r, color);
             _ = c.SDL_RenderClear(r);
             setDrawColor(r, oldColor);
+        }
+    }
+
+    /// Draw a filled circle using horizontal scanlines
+    pub fn fillCircle(renderer: RendererPtr, centerX: i32, centerY: i32, radius: i32) void {
+        if (renderer) |r| {
+            var y: i32 = -radius;
+            while (y <= radius) : (y += 1) {
+                // Calculate x extent at this y using circle equation: x^2 + y^2 = r^2
+                const y_f: f32 = @floatFromInt(y);
+                const r_f: f32 = @floatFromInt(radius);
+                const x_extent: i32 = @intFromFloat(@sqrt(r_f * r_f - y_f * y_f));
+
+                _ = c.SDL_RenderDrawLine(r, centerX - x_extent, centerY + y, centerX + x_extent, centerY + y);
+            }
+        }
+    }
+
+    /// Draw a filled rectangle
+    pub fn fillRect(renderer: RendererPtr, x: i32, y: i32, w: i32, h: i32) void {
+        if (renderer) |r| {
+            const rect: c.SDL_Rect = .{ .x = x, .y = y, .w = w, .h = h };
+            _ = c.SDL_RenderFillRect(r, &rect);
         }
     }
 };

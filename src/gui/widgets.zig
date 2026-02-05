@@ -24,23 +24,19 @@ pub const MouseButtonStates = enum(u8) { RELEASED, JUST_NOW_RELEASED, JUST_NOW_P
 
 pub const Transform = struct {
     position: shapes.Vec2(i32) = .{ .x = 0, .y = 0 }, //x,y
-    rotation: f32 = undefined, //degrees
+    rotation: f32 = 0.0, //degrees
     scale: shapes.Vec2(f32) = .{ .x = 1.0, .y = 1.0 }, //x,y
 };
 
 pub fn Button(comptime WrapperType: type) type {
     return struct {
         fontIndex: ?usize = null,
-        shape: shapes.Shape=.{.Rect=.{}},
 
         pub fn draw(self: *Button(WrapperType), widget: *Widget(WrapperType)) !void {
-            const transfromedCoords = widget.*.relativeToGlobalCoordinates();
-            const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
-                .x = transfromedCoords.x, //
-                .y = transfromedCoords.y,
-                .h = widget.presentation.bounds.y,
-                .w = widget.presentation.bounds.x,
-            };
+            const transformedCoords = widget.*.relativeToGlobalCoordinates();
+            const bounds = widget.presentation.shape.getBounds();
+            const boundsX: i32 = @intFromFloat(bounds.x);
+            const boundsY: i32 = @intFromFloat(bounds.y);
 
             var color: sdl.types.RGBAColor = widget.presentation.color;
 
@@ -59,7 +55,25 @@ pub fn Button(comptime WrapperType: type) type {
 
             if (widget.*.owningGui) |gui| {
                 _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, color.r, color.g, color.b, color.a);
-                _ = sdl.c.SDL_RenderFillRect(gui.*.renderer, &rect);
+
+                // Draw based on shape type
+                switch (widget.presentation.shape) {
+                    .Circle => |circle| {
+                        const radius: i32 = @intFromFloat(circle.radius);
+                        sdl.Renderer.fillCircle(gui.*.renderer, transformedCoords.x + radius, transformedCoords.y + radius, radius);
+                    },
+                    .Rect => {
+                        sdl.Renderer.fillRect(gui.*.renderer, transformedCoords.x, transformedCoords.y, boundsX, boundsY);
+                    },
+                }
+
+                // Text rect for label (uses bounding box regardless of shape)
+                const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
+                    .x = transformedCoords.x,
+                    .y = transformedCoords.y,
+                    .h = boundsY,
+                    .w = boundsX,
+                };
 
                 const fontIndex: usize = self.fontIndex orelse gui.*.fonts.items.len - 1;
                 const font: ?*fonts.Font = gui.*.fonts.items[fontIndex];
@@ -122,11 +136,14 @@ pub fn CheckBox(comptime WrapperType: type) type {
 
         pub fn draw(self: *CheckBox(WrapperType), widget: *Widget(WrapperType)) !void {
             const transformedCoords = widget.*.relativeToGlobalCoordinates();
+            const bounds = widget.presentation.shape.getBounds();
+            const boundsX: i32 = @intFromFloat(bounds.x);
+            const boundsY: i32 = @intFromFloat(bounds.y);
             const rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
                 .x = transformedCoords.x,
                 .y = transformedCoords.y,
-                .h = widget.presentation.bounds.y,
-                .w = widget.presentation.bounds.x,
+                .h = boundsY,
+                .w = boundsX,
             };
 
             var color: sdl.types.RGBAColor = widget.presentation.color;
@@ -149,13 +166,13 @@ pub fn CheckBox(comptime WrapperType: type) type {
                     _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, 50, 50, 50, 255);
                 }
 
-                const border = 10;
+                const border: i32 = 10;
 
                 const checked_rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
-                    .x = transformedCoords.x + border, //
+                    .x = transformedCoords.x + border,
                     .y = transformedCoords.y + border,
-                    .h = widget.presentation.bounds.y - (2 * border),
-                    .w = widget.presentation.bounds.x - (2 * border),
+                    .h = boundsY - (2 * border),
+                    .w = boundsX - (2 * border),
                 };
 
                 _ = sdl.c.SDL_RenderFillRect(gui.*.renderer, &checked_rect);
@@ -175,7 +192,7 @@ pub fn Slider(comptime WrapperType: type) type
         orientation: enum(u2) {VERTICAL, HORIZONTAL} = .HORIZONTAL,
 
         //function pointer for updates
-        onValueChanged: ?*fn(outer:*WrapperType, widget: *Widget(WrapperType), newState: bool) void = null,
+        onValueChanged: ?*fn(outer:*WrapperType, widget: *Widget(WrapperType), newValue: f32) void = null,
 
         pub fn update(self: *Slider(WrapperType), widget: *Widget(WrapperType)) !void
         {
@@ -183,29 +200,32 @@ pub fn Slider(comptime WrapperType: type) type
             _ = widget;
         }
 
-        pub fn draw(self: *Slider(WrapperType), widget: *Widget(WrapperType)) !void 
+        pub fn draw(self: *Slider(WrapperType), widget: *Widget(WrapperType)) !void
         {
             const transformedCoords = widget.*.relativeToGlobalCoordinates();
+            const bounds = widget.presentation.shape.getBounds();
+            const boundsX: i32 = @intFromFloat(bounds.x);
+            const boundsY: i32 = @intFromFloat(bounds.y);
             var rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
                 .x = transformedCoords.x,
                 .y = transformedCoords.y,
-                .h = widget.presentation.bounds.y,
-                .w = widget.presentation.bounds.x,
+                .h = boundsY,
+                .w = boundsX,
             };
 
             // Calculate ratio as floating point first, then convert to position
-  
+
             const ratio = self.currentValue / self.maxValue;
             _ = ratio;
             // Calculate thumb position (leave some space for the thumb width)
           //  const thumb_width: f32 = 30;
-           // const available_width: f32 = @as(f32,widget.bounds.x) - thumb_width;
+           // const available_width: f32 = bounds.x - thumb_width;
            // const thumbPos: f32 = ratio * available_width;
-            
+
             var thumbRect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
-                .x = transformedCoords.x ,//+ thumbPos,
+                .x = transformedCoords.x,
                 .y = transformedCoords.y,
-                .h = widget.presentation.bounds.y,
+                .h = boundsY,
                 .w = 30,
             };
 
@@ -352,14 +372,15 @@ pub fn Container(comptime WrapperType: type) type {
 
         pub fn draw(self: *Container(WrapperType), widget: *Widget(WrapperType)) !void {
             if (widget.*.owningGui) |gui| {
-                var rect: sdl.c.SDL_Rect = .{};
                 const transformedCoords = widget.*.relativeToGlobalCoordinates();
-                
-                rect = .{.x = @intCast(transformedCoords.x), 
-                        .y = @intCast(transformedCoords.y) ,
-                        .h = widget.presentation.bounds.y,
-                        .w = widget.presentation.bounds.x,
-                        };
+                const bounds = widget.presentation.shape.getBounds();
+
+                const rect: sdl.c.SDL_Rect = .{
+                    .x = transformedCoords.x,
+                    .y = transformedCoords.y,
+                    .h = @intFromFloat(bounds.y),
+                    .w = @intFromFloat(bounds.x),
+                };
        
                 _ = sdl.c.SDL_SetRenderDrawColor(gui.*.renderer, 
                                                 widget.*.presentation.color.r,
@@ -461,9 +482,8 @@ pub fn Widget(comptime WrapperType: type) type {
         const SelfType = @This();
 
         label: []const u8 = "",
-        presentation: struct{
+        presentation: struct {
             transform: Transform,
-            bounds: shapes.Vec2(i32),
             shape: shapes.Shape,
             color: sdl.types.RGBAColor,
         },
@@ -488,19 +508,19 @@ pub fn Widget(comptime WrapperType: type) type {
                 const mousePos = gui.*.environment.mouseLocation;
 
                 const widgetLocation = relativeToGlobalCoordinates(self);
+                const bounds = self.presentation.shape.getBounds();
 
-                //are we currently hovered?
-                //const latestHoverState = (mousePos.x >= widgetLocation.x) and
-                //    (mousePos.x <= widgetLocation.x +| self.bounds.x) and
-                //    (mousePos.y >= widgetLocation.y) and
-                //    (mousePos.y <= widgetLocation.y +| self.bounds.y);
+                //SDFs are based on the center point, and widget location is the top left. We need to move to the center.
+                const float_location = shapes.Vec2(f32){
+                    .x = @as(f32, @floatFromInt(widgetLocation.x)) + (bounds.x / 2),
+                    .y = @as(f32, @floatFromInt(widgetLocation.y)) + (bounds.y / 2),
+                };
+                const float_mouse_location = shapes.Vec2(f32){
+                    .x = @floatFromInt(mousePos.x),
+                    .y = @floatFromInt(mousePos.y),
+                };
 
-                const float_location = shapes.Vec2(f32){.x = @floatFromInt(widgetLocation.x + (@divTrunc(self.presentation.bounds.x, 2))), .y = @floatFromInt(widgetLocation.y + (@divTrunc(self.presentation.bounds.y, 2)))};
-                const float_mouse_location =shapes.Vec2(f32){.x = @floatFromInt(mousePos.x), .y=@floatFromInt(mousePos.y)};
-
-                const latestHoverState = self.presentation.shape.containsPoint(float_location,float_mouse_location);
-
-                //std.debug.print("{}\n",.{self.hoverState});
+                const latestHoverState = self.presentation.shape.containsPoint(float_location, float_mouse_location);
 
                 hoverStateCheck: switch (self.hoverState) {
                     WidgetHoverStates.UNHOVERED => {
