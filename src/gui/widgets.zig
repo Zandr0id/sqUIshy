@@ -192,12 +192,61 @@ pub fn Slider(comptime WrapperType: type) type
         orientation: enum(u2) {VERTICAL, HORIZONTAL} = .HORIZONTAL,
 
         //function pointer for updates
-        onValueChanged: ?*fn(outer:*WrapperType, widget: *Widget(WrapperType), newValue: f32) void = null,
+        onValueChanged: ?*const fn(outer:*WrapperType, widget: *Widget(WrapperType), newValue: f32) void = null,
+
+        pub fn setValue(self: *Slider(WrapperType), widget: *Widget(WrapperType), newValue: f32) !void
+        {
+            if ((newValue <= self.maxValue) and (newValue >= self.minValue))
+            {
+                self.currentValue = newValue;
+
+                //Signal out the change if needed
+                if (widget.*.owningGui) |gui| {
+                    if (self.onValueChanged) |callback| {
+                        callback(gui.*.environment.wrapperApp, widget, self.currentValue);
+                    }
+                }
+            }
+            //TODO return an out of bounds error or something here
+        }
 
         pub fn update(self: *Slider(WrapperType), widget: *Widget(WrapperType)) !void
         {
-            _ = self;
-            _ = widget;
+            if (widget.*.owningGui) |gui| {
+                // Only update value while mouse is pressed and hovering (or dragging)
+                if (widget.*.isMouseDown) {
+                    const mousePos = gui.*.environment.mouseLocation;
+                    const widgetPos = widget.*.relativeToGlobalCoordinates();
+                    const bounds = widget.presentation.shape.getBounds();
+
+                    const thumbWidth: f32 = 30;
+                    const oldValue = self.currentValue;
+
+                    switch (self.orientation) {
+                        .HORIZONTAL => {
+                            const availableWidth = bounds.x - thumbWidth;
+                            const relativeX = @as(f32, @floatFromInt(mousePos.x - widgetPos.x)) - (thumbWidth / 2);
+                            const ratio = std.math.clamp(relativeX / availableWidth, 0.0, 1.0);
+                            self.currentValue = self.minValue + ratio * (self.maxValue - self.minValue);
+                        },
+                        .VERTICAL => {
+                            const availableHeight = bounds.y - thumbWidth;
+                            const relativeY = @as(f32, @floatFromInt(mousePos.y - widgetPos.y)) - (thumbWidth / 2);
+                            const ratio = std.math.clamp(relativeY / availableHeight, 0.0, 1.0);
+                            self.currentValue = self.minValue + ratio * (self.maxValue - self.minValue);
+                        },
+                    }
+
+                    // Call callback if value changed
+                    if (self.currentValue != oldValue) {
+                        if (self.onValueChanged) |callback| {
+                            callback(gui.*.environment.wrapperApp, widget, self.currentValue);
+                        }
+                    }
+                }
+            } else {
+                return error.NoOwningGuiSet;
+            }
         }
 
         pub fn draw(self: *Slider(WrapperType), widget: *Widget(WrapperType)) !void
@@ -206,42 +255,46 @@ pub fn Slider(comptime WrapperType: type) type
             const bounds = widget.presentation.shape.getBounds();
             const boundsX: i32 = @intFromFloat(bounds.x);
             const boundsY: i32 = @intFromFloat(bounds.y);
-            var rect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
-                .x = transformedCoords.x,
-                .y = transformedCoords.y,
-                .h = boundsY,
-                .w = boundsX,
-            };
 
-            // Calculate ratio as floating point first, then convert to position
+            const thumbSize: i32 = 30;
+            const ratio = (self.currentValue - self.minValue) / (self.maxValue - self.minValue);
 
-            const ratio = self.currentValue / self.maxValue;
-            _ = ratio;
-            // Calculate thumb position (leave some space for the thumb width)
-          //  const thumb_width: f32 = 30;
-           // const available_width: f32 = bounds.x - thumb_width;
-           // const thumbPos: f32 = ratio * available_width;
+            var rect: sdl.c.SDL_Rect = undefined;
+            var thumbRect: sdl.c.SDL_Rect = undefined;
 
-            var thumbRect: sdl.c.SDL_Rect = sdl.c.SDL_Rect{
-                .x = transformedCoords.x,
-                .y = transformedCoords.y,
-                .h = boundsY,
-                .w = 30,
-            };
-
-            switch(self.orientation)
-            {
-                //swap the orientation
-                .VERTICAL => {
-                    var temp = rect.h;
-                    rect.h = rect.w;
-                    rect.w = temp;
-
-                    temp = thumbRect.w;
-                    thumbRect.w = thumbRect.h;
-                    thumbRect.h = temp;
+            switch (self.orientation) {
+                .HORIZONTAL => {
+                    rect = .{
+                        .x = transformedCoords.x,
+                        .y = transformedCoords.y,
+                        .w = boundsX,
+                        .h = boundsY,
+                    };
+                    const availableWidth = bounds.x - @as(f32, @floatFromInt(thumbSize));
+                    const thumbPos: i32 = @intFromFloat(ratio * availableWidth);
+                    thumbRect = .{
+                        .x = transformedCoords.x + thumbPos,
+                        .y = transformedCoords.y,
+                        .w = thumbSize,
+                        .h = boundsY,
+                    };
                 },
-                else =>{}
+                .VERTICAL => {
+                    rect = .{
+                        .x = transformedCoords.x,
+                        .y = transformedCoords.y,
+                        .w = boundsX,
+                        .h = boundsY,
+                    };
+                    const availableHeight = bounds.y - @as(f32, @floatFromInt(thumbSize));
+                    const thumbPos: i32 = @intFromFloat(ratio * availableHeight);
+                    thumbRect = .{
+                        .x = transformedCoords.x,
+                        .y = transformedCoords.y + thumbPos,
+                        .w = boundsX,
+                        .h = thumbSize,
+                    };
+                },
             }
 
             if (widget.*.owningGui) |gui|
@@ -440,6 +493,7 @@ pub fn WidgetType(comptime WrapperType: type) type {
             switch (self.*) {
                 //.Button => |*button| try button.update(widget),
                 .CheckBox => |*checkbox| try checkbox.update(widget),
+                .Slider => |*slider| try slider.update(widget),
                 .Container => |*container| try container.update(widget),
                 else => {},
             }

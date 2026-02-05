@@ -23,10 +23,21 @@ pub const App = struct {
     checkbox: ?*AppWidget = null,
     label_2: ?*AppWidget = null,
 
+    // Buffer for dynamic label text
+    label_buffer: [8]u8 = [_]u8{'\n'} ** 8,
+
     pub fn OnClick1(self: *App, widget: *AppWidget) void {
+        try self.horizontal_slider.?.widgetType.Slider.setValue(widget, 0.0);
+    }
+
+    pub fn onSliderChanged(self: *App, widget: *AppWidget, newValue: f32) void {
         _ = widget;
-        _ = self;
-       // ChangeText1(self);
+        // Format the value into the buffer
+        const formatted = std.fmt.bufPrintZ(&self.label_buffer, "{d:.1}", .{newValue}) catch "Error";
+        // Update the green button's label
+        if (self.green_button) |button| {
+            button.label = formatted;
+        }
     }
 
     pub fn Activate(self: *App, allocator: std.mem.Allocator) !void {
@@ -72,6 +83,24 @@ pub const App = struct {
             };
 
             self.red_button = root.*.addChildWidget(circle_button);
+
+            const slider_template: AppWidget = .{
+                .label = "",
+                .widgetType = gui.widgets.WidgetType(App){ .Slider = gui.widgets.Slider(App){
+                    .minValue = 0,
+                    .maxValue = 100,
+                    .currentValue = 25,
+                    .orientation = .HORIZONTAL,
+                    .onValueChanged = onSliderChanged,
+                } },
+                .presentation = .{
+                    .shape = .{ .Rect = .{ .size = .{ .x = 300, .y = 30 } } },
+                    .color = .{ .r = 100, .g = 150, .b = 200, .a = 255 },
+                    .transform = gui.widgets.Transform{ .position = .{ .x = 10, .y = 130 } },
+                },
+            };
+
+            self.horizontal_slider = root.*.addChildWidget(slider_template);
 
             //run the app until it quits
             try self.gui.*.Run();
